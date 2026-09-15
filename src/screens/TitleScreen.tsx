@@ -4,6 +4,8 @@ import { listSlots, type SlotNumber } from '../state/saveFormat';
 import { getAnimal } from '../data/animals';
 import { Sprite } from '../components/Sprite';
 
+const LOGO_SRC = '/art/branding/logo-main.jpg';
+
 export function TitleScreen() {
   const newGame = useGame((s) => s.newGame);
   const continueGame = useGame((s) => s.continueGame);
@@ -16,7 +18,7 @@ export function TitleScreen() {
     <div className="game title-screen">
       <div className="title-bg" />
       <div className="title-hero">
-        <Sprite art="mahery" color="#c98a4b" size={200} title="Mahery" />
+        <img src={LOGO_SRC} alt="Mahery" className="title-logo" />
       </div>
       <h1>Mahery</h1>
       <p className="tagline">

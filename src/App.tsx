@@ -1,5 +1,7 @@
 import { useGame } from './state/gameStore';
 import { Embers } from './components/Embers';
+import { MusicPlayer } from './components/MusicPlayer';
+import { SettingsPanel } from './components/SettingsPanel';
 import { TitleScreen } from './screens/TitleScreen';
 import { StoryScreen } from './screens/StoryScreen';
 import { BondScreen } from './screens/BondScreen';
@@ -30,6 +32,8 @@ export default function App() {
     <>
       <Embers />
       <CurrentScreen />
+      <MusicPlayer />
+      <SettingsPanel />
     </>
   );
 }
