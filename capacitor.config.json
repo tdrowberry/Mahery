@@ -1,0 +1,9 @@
+{
+  "appId": "com.tdrowberry.mahery",
+  "appName": "Mahery",
+  "webDir": "dist",
+  "backgroundColor": "#0f0e0c",
+  "android": {
+    "backgroundColor": "#0f0e0c"
+  }
+}

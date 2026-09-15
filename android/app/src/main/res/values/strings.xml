@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Mahery</string>
+    <string name="title_activity_main">Mahery</string>
+    <string name="package_name">com.tdrowberry.mahery</string>
+    <string name="custom_url_scheme">com.tdrowberry.mahery</string>
+</resources>

@@ -1,0 +1,556 @@
+import type { AnimalDef, AnimalId, ArtId, RankDef, SkillDef, VoiceLines } from './types';
+
+// All 11 bonds. Shared skills come from sharedSkills.ts; each animal only supplies
+// names and flavor for them, plus its own signature skill, stat mods, and voice.
+// Bear's voice is the fullest; the others are shorter first drafts in their own register.
+
+type UniqueSpec = Omit<SkillDef, 'kind' | 'id'> & { ranks: [RankDef, RankDef, RankDef] };
+
+const unique = (animalId: AnimalId, spec: UniqueSpec): SkillDef => ({
+  ...spec,
+  id: `${animalId}.unique`,
+  kind: 'unique',
+  requires: spec.requires ?? [{ skillId: `${animalId}.guardStance`, rank: 1 }],
+  minLevel: spec.minLevel ?? 2,
+});
+
+const voice = (v: Partial<VoiceLines>): VoiceLines => ({
+  prologue: [], beforeStage1: [], afterStage1: [], beforeBoss: [], afterBoss: [],
+  onSwapIn: [], onLowHealth: [], onVictory: [], onDefeat: [], ...v,
+});
+
+const bear: AnimalDef = {
+  id: 'bear',
+  name: 'Bear',
+  tagline: 'Immovable. Takes the hit and gives it back.',
+  playstyle: 'Tank, sustain',
+  physicalTraits: 'Broad frame, coarse dark hair on the arms, blunt claws.',
+  personality: 'Proud, steady, slow to anger, immovable once he digs in.',
+  color: '#8b5a2b',
+  art: 'bear',
+  baseStatMods: { vitality: 3, strength: 2, instinct: 0, speed: -2 },
+  sharedSkillFlavor: {
+    basicStrike: { name: 'Bear Slash', flavor: 'A heavy, open-pawed swipe. Nothing fancy, nothing wasted.' },
+    guardStance: { name: 'Thick Hide', flavor: 'Mahery plants his feet and lets the hits land where they do the least.' },
+    instinctSurge: { name: "Bear's Roar", flavor: 'A roar from the chest. Everything after it hits harder.' },
+    secondWind: { name: 'Den Recovery', flavor: 'A slow breath, the way a bear settles into its den. Wounds close a little.' },
+    powerStrike: { name: 'Crushing Blow', flavor: 'He puts his whole weight behind it.' },
+    weaken: { name: 'Bone-Deep Swipe', flavor: 'A claw raked in deep enough to slow anything down.' },
+    rally: { name: 'Den Call', flavor: 'A low, steady sound that says stand up, I have you.' },
+  },
+  uniqueSkill: unique('bear', {
+    name: "Hibernator's Resolve",
+    flavor: 'Dig in. For two turns, almost nothing gets through, and what does comes back.',
+    icon: 'resolve',
+    anim: 'cast',
+    target: 'self',
+    requires: [{ skillId: 'bear.guardStance', rank: 2 }],
+    ranks: [
+      { spiritCost: 12, cooldown: 5, summary: 'For 2 turns: take 40% less damage and reflect 25% of it.', effects: [{ kind: 'status', status: 'resolve', duration: 2, magnitude: 0.4, extra: 0.25, target: 'self' }] },
+      { spiritCost: 12, cooldown: 5, summary: 'For 2 turns: take 50% less damage and reflect 35% of it.', effects: [{ kind: 'status', status: 'resolve', duration: 2, magnitude: 0.5, extra: 0.35, target: 'self' }] },
+      { spiritCost: 12, cooldown: 5, summary: 'For 2 turns: take 60% less damage and reflect 50% of it.', effects: [{ kind: 'status', status: 'resolve', duration: 2, magnitude: 0.6, extra: 0.5, target: 'self' }] },
+    ],
+  }),
+  voice: voice({
+    prologue: [
+      "You're awake. Good. I was starting to think I'd bonded to a rock.",
+      "No, I don't know why it was you. The bond doesn't explain itself. It picks, and then it stays.",
+      "Your pack is gone. Your father is gone. I'm what's left. Stand up anyway.",
+    ],
+    beforeStage1: [
+      "Snake country. Smell that? Rot and old fear. Somebody's been feeding on this road.",
+      "They'll test you. Let them. Then show them what a bear does when it's tested.",
+    ],
+    afterStage1: [
+      "Not bad. You swing like you mean it. Keep meaning it.",
+      "Their leader is close. Snakes don't scatter like that unless something bigger is holding the den.",
+    ],
+    beforeBoss: [
+      "That one bonded and then chose to rot. Same road as you, opposite direction.",
+      "Don't rush it. A bear doesn't chase. A bear waits, and then the fight is over.",
+    ],
+    afterBoss: [
+      "It's done. You didn't flinch. I noticed.",
+      "One more thing before we move on. Your father was right about mercy. Not everyone will be. Remember which ones are.",
+    ],
+    onSwapIn: ['Rest. I will hold the line.', 'My turn.', 'Behind me. Now.'],
+    onLowHealth: ["Plant your feet. You're not falling today.", 'Breathe. Then hit back.'],
+    onVictory: ["Still standing. That's the whole trick.", "They'll think twice next time. Snakes usually do."],
+    onDefeat: ['Get up. A bear that falls once is still a bear.'],
+  }),
+};
+
+const moose: AnimalDef = {
+  id: 'moose',
+  name: 'Moose',
+  tagline: 'Plants himself and drives straight through.',
+  playstyle: 'Bruiser, control',
+  physicalTraits: 'A heavily built frame, broad shoulders, patches of tough, velvety skin on the forearms.',
+  personality: 'Blunt, forceful, protective, hard to move once he plants himself.',
+  color: '#6b4a2e',
+  art: 'moose',
+  baseStatMods: { vitality: 3, strength: 2, instinct: -1, speed: -1 },
+  sharedSkillFlavor: {
+    basicStrike: { name: 'Antler Jab', flavor: 'Head down, shoulders in. The antlers do the rest.' },
+    guardStance: { name: 'Broadside Stance', flavor: 'Turn the broad side to the threat and refuse to be moved.' },
+    instinctSurge: { name: 'Bull Bugle', flavor: 'A low bellow that empties the lungs and fills the chest.' },
+    secondWind: { name: 'Forest Graze', flavor: 'A mouthful of bark and leaves, chewed slow. It helps.' },
+    powerStrike: { name: 'Full Charge', flavor: 'Every pound of him lands at once.' },
+    weaken: { name: 'Trampling Kick', flavor: 'A hoof that leaves the ground unsteady under whatever it hits.' },
+    rally: { name: 'Herd Bugle', flavor: 'A call that says you are not standing here alone.' },
+  },
+  uniqueSkill: unique('moose', {
+    name: 'Antler Charge',
+    flavor: 'Close the gap. Hit the one in front and whoever is fool enough to stand behind.',
+    icon: 'charge',
+    anim: 'charge',
+    target: 'enemy',
+    ranks: [
+      { spiritCost: 10, cooldown: 4, summary: 'Deal 140% Strength, 50% of that to the enemy behind, 25% chance to stun.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 1.4 }, { kind: 'special', key: 'splashBehind', params: { multiplier: 0.7 } }, { kind: 'special', key: 'stunChance', params: { chance: 0.25, duration: 1 } }] },
+      { spiritCost: 10, cooldown: 4, summary: 'Deal 160% Strength, 50% of that to the enemy behind, 35% chance to stun.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 1.6 }, { kind: 'special', key: 'splashBehind', params: { multiplier: 0.8 } }, { kind: 'special', key: 'stunChance', params: { chance: 0.35, duration: 1 } }] },
+      { spiritCost: 10, cooldown: 4, summary: 'Deal 180% Strength, 50% of that to the enemy behind, 45% chance to stun.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 1.8 }, { kind: 'special', key: 'splashBehind', params: { multiplier: 0.9 } }, { kind: 'special', key: 'stunChance', params: { chance: 0.45, duration: 1 } }] },
+    ],
+  }),
+  voice: voice({
+    prologue: ["Up. You've been down long enough.", "I don't explain the bond. I just keep it.", 'Whatever they took from you, they left your legs. Use them.'],
+    beforeStage1: ['Snakes. Low things. Walk straight and they scatter.'],
+    afterStage1: ['Good. Straight through. That is how we do it.'],
+    beforeBoss: ['The big one waits in the hollow. Fine. We go in the front.'],
+    afterBoss: ['Done. You let it live. Hm. Your father would have too.'],
+    onSwapIn: ['Move. I have this.', 'Stand behind me.'],
+    onLowHealth: ['Plant your feet.'],
+    onVictory: ['Cleared. Keep walking.'],
+    onDefeat: ['Up. Again.'],
+  }),
+};
+
+const boar: AnimalDef = {
+  id: 'boar',
+  name: 'Boar',
+  tagline: 'Hurts more the more it bleeds. Never backs down.',
+  playstyle: 'Glass cannon',
+  physicalTraits: 'Bristled hair on the forearms, slightly longer lower canines.',
+  personality: 'Brash, quick to anger, reckless, never backs down.',
+  color: '#5a3a2a',
+  art: 'boar',
+  baseStatMods: { vitality: 0, strength: 3, instinct: -1, speed: 1 },
+  sharedSkillFlavor: {
+    basicStrike: { name: 'Tusk Stab', flavor: 'Short, ugly, effective.' },
+    guardStance: { name: 'Bristled Hide', flavor: 'The hair on his arms stands up like wire.' },
+    instinctSurge: { name: 'Charging Snort', flavor: 'One hard breath out. Then everything is a target.' },
+    secondWind: { name: 'Root and Forage', flavor: 'Whatever is in the dirt, he eats it. He feels better.' },
+    powerStrike: { name: 'Gutting Tusk', flavor: 'He does not pull back from this one.' },
+    weaken: { name: 'Savage Bite', flavor: 'Deep enough to take the fight out of most things.' },
+    rally: { name: 'Root Share', flavor: 'He shoves the good roots your way first. It is the closest he gets to gentle.' },
+  },
+  uniqueSkill: unique('boar', {
+    name: 'Reckless Rampage',
+    flavor: 'The worse it looks, the harder he hits.',
+    icon: 'rampage',
+    anim: 'charge',
+    target: 'enemy',
+    ranks: [
+      { spiritCost: 8, cooldown: 3, summary: 'Deal 100% Strength, plus up to 150% more the lower your Health.', effects: [{ kind: 'special', key: 'rampage', params: { base: 1.0, bonus: 1.5 } }] },
+      { spiritCost: 8, cooldown: 3, summary: 'Deal 110% Strength, plus up to 200% more the lower your Health.', effects: [{ kind: 'special', key: 'rampage', params: { base: 1.1, bonus: 2.0 } }] },
+      { spiritCost: 8, cooldown: 3, summary: 'Deal 120% Strength, plus up to 250% more the lower your Health.', effects: [{ kind: 'special', key: 'rampage', params: { base: 1.2, bonus: 2.5 } }] },
+    ],
+  }),
+  voice: voice({
+    prologue: ['Finally. You sleep like the dead.', "Don't ask me why you. Ask why not.", 'They threw you out. So? Throw something back.'],
+    beforeStage1: ['Snakes. I hate snakes. Good.'],
+    afterStage1: ['Ha! Run, then. Run!'],
+    beforeBoss: ['The big one. Bigger they are, the more there is to bite.'],
+    afterBoss: ['You let it walk? ...Fine. Fine. Your call.'],
+    onSwapIn: ['Out of my way!', 'My turn to bite.'],
+    onLowHealth: ['Good. Now we are angry.'],
+    onVictory: ['Who is next?'],
+    onDefeat: ['Not. Done.'],
+  }),
+};
+
+const wolf: AnimalDef = {
+  id: 'wolf',
+  name: 'Wolf',
+  tagline: 'Reads the fight and punishes every weakness.',
+  playstyle: 'Debuff synergy',
+  physicalTraits: 'Sharper canines, a keen sense of smell, a gray streak in his hair.',
+  personality: "Loyal, reads people fast, restless when he's alone.",
+  color: '#6e6e78',
+  art: 'wolf',
+  baseStatMods: { vitality: 0, strength: 1, instinct: 1, speed: 2 },
+  sharedSkillFlavor: {
+    basicStrike: { name: 'Fang Rake', flavor: 'In, bite, out. Never linger.' },
+    guardStance: { name: 'Bristle Guard', flavor: 'Hackles up, weight low, ready for whatever comes.' },
+    instinctSurge: { name: 'Howling Call', flavor: 'A howl for a pack that is not here. It answers anyway.' },
+    secondWind: { name: 'Lick Wounds', flavor: 'Quick, practical, a little undignified. It works.' },
+    powerStrike: { name: 'Killing Bite', flavor: 'He commits to it fully, no half measures.' },
+    weaken: { name: 'Hamstring Rake', flavor: 'He goes for the tendon, not the throat, first.' },
+    rally: { name: 'Pack Call', flavor: 'A short bark, close and low. It means I am still here.' },
+  },
+  uniqueSkill: unique('wolf', {
+    name: 'Pack Instinct',
+    flavor: 'Every weakness on the target is another wolf at its throat.',
+    icon: 'pack',
+    anim: 'strike',
+    target: 'enemy',
+    ranks: [
+      { spiritCost: 8, cooldown: 3, summary: 'Deal 100% Strength, +35% per negative effect on the target.', effects: [{ kind: 'special', key: 'packInstinct', params: { base: 1.0, perDebuff: 0.35 } }] },
+      { spiritCost: 8, cooldown: 3, summary: 'Deal 110% Strength, +50% per negative effect on the target.', effects: [{ kind: 'special', key: 'packInstinct', params: { base: 1.1, perDebuff: 0.5 } }] },
+      { spiritCost: 8, cooldown: 3, summary: 'Deal 120% Strength, +65% per negative effect on the target.', effects: [{ kind: 'special', key: 'packInstinct', params: { base: 1.2, perDebuff: 0.65 } }] },
+    ],
+  }),
+  voice: voice({
+    prologue: ['Awake. Good. I was getting restless.', 'The bond picked you. I trust it. Give me a reason to keep trusting.', 'No pack is not the same as no one. You have me.'],
+    beforeStage1: ['I smell them. Two. Scared, and hiding it badly.'],
+    afterStage1: ['They ran toward something. Their leader. Follow the blood.'],
+    beforeBoss: ['That one is alone too. It just decided alone meant cruel.'],
+    afterBoss: ['You gave it a way back. Some take it. Some do not. You will know which by their eyes.'],
+    onSwapIn: ['With you.', 'My turn to bite.'],
+    onLowHealth: ['Stay up. I am right here.'],
+    onVictory: ['Clean. Let us go.'],
+    onDefeat: ['I am not leaving. Get up.'],
+  }),
+};
+
+const elk: AnimalDef = {
+  id: 'elk',
+  name: 'Elk',
+  tagline: 'A leader. Makes everyone beside him stronger.',
+  playstyle: 'Support',
+  physicalTraits: 'Lean and tall, sharper hearing, a faint ridged brow.',
+  personality: 'Composed, a natural leader, quietly dignified.',
+  color: '#8a6a3c',
+  art: 'elk',
+  baseStatMods: { vitality: 1, strength: 1, instinct: 2, speed: 0 },
+  sharedSkillFlavor: {
+    basicStrike: { name: 'Antler Gore', flavor: 'A measured thrust. The antlers know where to go.' },
+    guardStance: { name: 'Herd Stance', flavor: 'Stand as if the whole herd stood behind you.' },
+    instinctSurge: { name: 'Bugling Cry', flavor: 'A high, clear call that carries across the valley.' },
+    secondWind: { name: 'Meadow Graze', flavor: 'A calm moment in tall grass. Breath returns.' },
+    powerStrike: { name: 'Full Antler Drive', flavor: 'He puts his whole neck into it.' },
+    weaken: { name: 'Staggering Blow', flavor: 'Aimed to take the strength out of the next several moves.' },
+    rally: { name: 'Rally Cry', flavor: 'The sound a leader makes when the line needs to hold.' },
+  },
+  uniqueSkill: unique('elk', {
+    name: "Herd's Blessing",
+    flavor: 'The herd is the two of you. Lend strength to both. Alone, gather it inward instead.',
+    icon: 'blessing',
+    anim: 'cast',
+    target: 'self',
+    ranks: [
+      { spiritCost: 9, cooldown: 4, summary: 'Mahery and the companion gain +20% Strength and Speed for 3 turns. Solo: +20% Instinct and a 200% Vitality shield.', effects: [{ kind: 'special', key: 'herdBlessing', params: { magnitude: 0.2, duration: 3, shieldMult: 2 } }] },
+      { spiritCost: 9, cooldown: 4, summary: 'Mahery and the companion gain +30% Strength and Speed for 3 turns. Solo: +30% Instinct and a 300% Vitality shield.', effects: [{ kind: 'special', key: 'herdBlessing', params: { magnitude: 0.3, duration: 3, shieldMult: 3 } }] },
+      { spiritCost: 9, cooldown: 4, summary: 'Mahery and the companion gain +40% Strength and Speed for 3 turns. Solo: +40% Instinct and a 400% Vitality shield.', effects: [{ kind: 'special', key: 'herdBlessing', params: { magnitude: 0.4, duration: 3, shieldMult: 4 } }] },
+    ],
+  }),
+  voice: voice({
+    prologue: ['You are awake. Take a moment. Then we go.', 'The bond chose. I do not question it, and neither should you.', 'A herd of two is still a herd. Walk with your head up.'],
+    beforeStage1: ['Hostile ground. Keep your pace. Let them come to us.'],
+    afterStage1: ['Well fought. They will carry word of you deeper in.'],
+    beforeBoss: ['This one leads by fear. Show it another way to lead.'],
+    afterBoss: ['Mercy is not weakness. It is the harder road, and you took it.'],
+    onSwapIn: ['I will take this.', 'Step back. Breathe.'],
+    onLowHealth: ['Steady. Heads up.'],
+    onVictory: ['Onward.'],
+    onDefeat: ['Rise. A herd does not leave its own.'],
+  }),
+};
+
+const platypus: AnimalDef = {
+  id: 'platypus',
+  name: 'Platypus',
+  tagline: 'Underestimated, venomous, and fine with both.',
+  playstyle: 'Control, poison',
+  physicalTraits: 'Slightly webbed fingers, smoother and more sensitive skin on the hands.',
+  personality: 'Calm under pressure, dry humor, comfortable being underestimated.',
+  color: '#4f6b5e',
+  art: 'platypus',
+  baseStatMods: { vitality: 0, strength: -1, instinct: 3, speed: 1 },
+  sharedSkillFlavor: {
+    basicStrike: { name: 'Bill Strike', flavor: 'It looks silly right up until it connects.' },
+    guardStance: { name: 'Webbed Guard', flavor: 'Loose, slippery, hard to pin down.' },
+    instinctSurge: { name: 'Alert Chirp', flavor: 'A small sound. Everything sharpens.' },
+    secondWind: { name: 'Riverbank Rest', flavor: 'Half in the water, half out. Both halves recover.' },
+    powerStrike: { name: 'Barbed Strike', flavor: 'The heel spur, aimed to actually land this time.' },
+    weaken: { name: 'Numbing Jab', flavor: 'Just enough venom to slow the arm holding the weapon.' },
+    rally: { name: 'Shared Current', flavor: 'He passes a little of his calm downstream to you.' },
+  },
+  uniqueSkill: unique('platypus', {
+    name: 'Venom Spur',
+    flavor: 'A quick jab from the heel spur. The venom does the slow work.',
+    icon: 'venom',
+    anim: 'venom',
+    target: 'enemy',
+    ranks: [
+      { spiritCost: 8, cooldown: 3, summary: 'Deal 60% Strength, poison for 80% Instinct over 4 turns, and slow the target for 2 turns.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 0.6 }, { kind: 'status', status: 'poison', duration: 4, magnitude: 0.8, scaling: 'instinct', target: 'target' }, { kind: 'status', status: 'speedDown', duration: 2, magnitude: 0.25, target: 'target' }] },
+      { spiritCost: 8, cooldown: 3, summary: 'Deal 60% Strength, poison for 100% Instinct over 4 turns, and slow the target for 2 turns.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 0.6 }, { kind: 'status', status: 'poison', duration: 4, magnitude: 1.0, scaling: 'instinct', target: 'target' }, { kind: 'status', status: 'speedDown', duration: 2, magnitude: 0.3, target: 'target' }] },
+      { spiritCost: 8, cooldown: 3, summary: 'Deal 60% Strength, poison for 120% Instinct over 4 turns, and slow the target for 3 turns.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 0.6 }, { kind: 'status', status: 'poison', duration: 4, magnitude: 1.2, scaling: 'instinct', target: 'target' }, { kind: 'status', status: 'speedDown', duration: 3, magnitude: 0.35, target: 'target' }] },
+    ],
+  }),
+  voice: voice({
+    prologue: ['Morning. You were talking in your sleep. Nothing useful.', 'Why you? Could be worse. Could be me.', 'No pack. No father. One platypus. Statistically, an improvement on nothing.'],
+    beforeStage1: ['Snakes think they own venom. Adorable.'],
+    afterStage1: ['They ran. Sensible. Rare in snakes.'],
+    beforeBoss: ['Big snake. Big hood. Compensating for something.'],
+    afterBoss: ['You let it live. Bold. I would have charged rent.'],
+    onSwapIn: ['Fine. I will handle it.', 'Watch the spur.'],
+    onLowHealth: ['That looked like it hurt. Try not to do it again.'],
+    onVictory: ['Underestimated again. Delightful.'],
+    onDefeat: ['Up. I am not carrying you.'],
+  }),
+};
+
+const mountainLion: AnimalDef = {
+  id: 'mountainLion',
+  name: 'Mountain Lion',
+  tagline: 'Waits. Then ends it in one strike.',
+  playstyle: 'Burst',
+  physicalTraits: 'A lighter step, tawny patches at the temples, sharper canines.',
+  personality: 'Patient, solitary, calculating, strikes only when sure.',
+  color: '#b08a4a',
+  art: 'mountainLion',
+  baseStatMods: { vitality: -1, strength: 2, instinct: 0, speed: 2 },
+  sharedSkillFlavor: {
+    basicStrike: { name: 'Claw Swipe', flavor: 'Fast, low, aimed at the tendons.' },
+    guardStance: { name: 'Low Crouch', flavor: 'Belly to the ground. Nothing to hit.' },
+    instinctSurge: { name: "Predator's Snarl", flavor: 'A sound most things only hear once.' },
+    secondWind: { name: 'Shake It Off', flavor: 'A full-body shake, and the sting is gone.' },
+    powerStrike: { name: 'Killing Blow', flavor: 'He only commits like this when he is already sure.' },
+    weaken: { name: 'Tendon Strike', flavor: 'A precise cut aimed at whatever holds the target up.' },
+    rally: { name: 'Silent Signal', flavor: 'A look, nothing more. It says he has your back.' },
+  },
+  uniqueSkill: unique('mountainLion', {
+    name: 'Ambush Pounce',
+    flavor: 'Devastating as an opener. Later, it finishes what is already wounded.',
+    icon: 'pounce',
+    anim: 'charge',
+    target: 'enemy',
+    ranks: [
+      { spiritCost: 9, cooldown: 4, summary: 'Deal 160% Strength. +50% in round 1; +100% against targets under 30% Health.', effects: [{ kind: 'special', key: 'ambush', params: { multiplier: 1.6, openingBonus: 0.5, executeThreshold: 0.3, executeBonus: 1.0 } }] },
+      { spiritCost: 9, cooldown: 4, summary: 'Deal 190% Strength. +50% in round 1; +100% against targets under 35% Health.', effects: [{ kind: 'special', key: 'ambush', params: { multiplier: 1.9, openingBonus: 0.5, executeThreshold: 0.35, executeBonus: 1.0 } }] },
+      { spiritCost: 9, cooldown: 4, summary: 'Deal 220% Strength. +60% in round 1; +120% against targets under 40% Health.', effects: [{ kind: 'special', key: 'ambush', params: { multiplier: 2.2, openingBonus: 0.6, executeThreshold: 0.4, executeBonus: 1.2 } }] },
+    ],
+  }),
+  voice: voice({
+    prologue: ['You are awake. I watched all night. Nothing came.', 'The bond chose you. I am still deciding.', 'Alone is not a wound. It is a position. Use it.'],
+    beforeStage1: ['Two of them. Wait for the opening. There is always an opening.'],
+    afterStage1: ['Clean. The wounded one ran toward the den. It will lead us there.'],
+    beforeBoss: ['A big one. Big things fall the same as small ones. Just louder.'],
+    afterBoss: ['Mercy. I would not have. But I was not the one deciding.'],
+    onSwapIn: ['Step aside.', 'Now.'],
+    onLowHealth: ['Be still. Then be sudden.'],
+    onVictory: ['Done.'],
+    onDefeat: ['Get up. Quietly.'],
+  }),
+};
+
+const bobcat: AnimalDef = {
+  id: 'bobcat',
+  name: 'Bobcat',
+  tagline: 'Fast, sharp, and always where you were not looking.',
+  playstyle: 'Crit, bleed',
+  physicalTraits: 'Quick reflexes, flecked eyes, sharpened nails.',
+  personality: 'Independent, prickly, quick witted, slow to trust.',
+  color: '#a5763f',
+  art: 'bobcat',
+  baseStatMods: { vitality: -2, strength: 1, instinct: 1, speed: 3 },
+  sharedSkillFlavor: {
+    basicStrike: { name: 'Rake Claw', flavor: 'Three quick lines, and the target notices later.' },
+    guardStance: { name: 'Coiled Stance', flavor: 'Wound tight, ready to go any direction.' },
+    instinctSurge: { name: 'Warning Hiss', flavor: 'A hiss that means exactly what it sounds like.' },
+    secondWind: { name: 'Quick Grooming', flavor: 'Fussy, fast, and somehow it helps.' },
+    powerStrike: { name: 'Precise Strike', flavor: 'No wasted motion, all of it aimed at one spot.' },
+    weaken: { name: 'Crippling Rake', flavor: 'She knows exactly where it slows something down.' },
+    rally: { name: 'Quiet Support', flavor: 'She would never call it kindness. It is, though.' },
+  },
+  uniqueSkill: unique('bobcat', {
+    name: 'Shadow Stalk',
+    flavor: 'Come from nowhere. The strike always finds the soft spot, and it keeps bleeding.',
+    icon: 'shadow',
+    anim: 'charge',
+    target: 'enemy',
+    ranks: [
+      { spiritCost: 14, cooldown: 4, summary: 'Deal 120% Strength as a guaranteed critical and bleed for 30% Strength over 3 turns.', effects: [{ kind: 'special', key: 'guaranteedCrit', params: { multiplier: 1.2 } }, { kind: 'status', status: 'bleed', duration: 3, magnitude: 0.3, scaling: 'strength', target: 'target' }] },
+      { spiritCost: 14, cooldown: 4, summary: 'Deal 140% Strength as a guaranteed critical and bleed for 40% Strength over 3 turns.', effects: [{ kind: 'special', key: 'guaranteedCrit', params: { multiplier: 1.4 } }, { kind: 'status', status: 'bleed', duration: 3, magnitude: 0.4, scaling: 'strength', target: 'target' }] },
+      { spiritCost: 14, cooldown: 4, summary: 'Deal 160% Strength as a guaranteed critical and bleed for 50% Strength over 3 turns.', effects: [{ kind: 'special', key: 'guaranteedCrit', params: { multiplier: 1.6 } }, { kind: 'status', status: 'bleed', duration: 3, magnitude: 0.5, scaling: 'strength', target: 'target' }] },
+    ],
+  }),
+  voice: voice({
+    prologue: ['Oh, you are awake. Took you long enough.', 'Do not look at me like I chose this. The bond did. I am still annoyed about it.', 'Nobody is coming. So we go. Try to keep up.'],
+    beforeStage1: ['Snakes. Slow, smug, easy. Do not get bitten and make me look bad.'],
+    afterStage1: ['See? Easy. Do not let it go to your head.'],
+    beforeBoss: ['The big one. Fine. Watch for the coil, hit the neck.'],
+    afterBoss: ['You let it live. Soft. ...Maybe not wrong. Do not tell anyone I said that.'],
+    onSwapIn: ['Move. Watch and learn.', 'Ugh. Fine.'],
+    onLowHealth: ['Stop getting hit. That is my whole advice.'],
+    onVictory: ['Obviously.'],
+    onDefeat: ['Get up. I am not doing this alone.'],
+  }),
+};
+
+const buffalo: AnimalDef = {
+  id: 'buffalo',
+  name: 'Buffalo',
+  tagline: 'Slow to start, impossible to stop.',
+  playstyle: 'Tank, AOE',
+  physicalTraits: 'A heavyset frame, coarse dark hair across the shoulders.',
+  personality: 'Unshakeable, blunt, dependable, slow to start and hard to stop.',
+  color: '#4a3526',
+  art: 'buffalo',
+  baseStatMods: { vitality: 4, strength: 1, instinct: -1, speed: -2 },
+  sharedSkillFlavor: {
+    basicStrike: { name: 'Horn Strike', flavor: 'Not fast. Does not need to be.' },
+    guardStance: { name: 'Bulwark Stance', flavor: 'Become the wall the others hide behind.' },
+    instinctSurge: { name: 'Stampede Bellow', flavor: 'A bellow you feel in the ground before you hear it.' },
+    secondWind: { name: 'Graze and Recover', flavor: 'Head down. Eat. Carry on.' },
+    powerStrike: { name: 'Full Horn Drive', flavor: 'The whole herd behind one horn, for a moment.' },
+    weaken: { name: 'Bone-Jarring Hit', flavor: 'Hard enough to take something out of whatever it lands on.' },
+    rally: { name: 'Bellow of Aid', flavor: 'A sound built to say hold on, I am coming.' },
+  },
+  uniqueSkill: unique('buffalo', {
+    name: 'Unstoppable Stampede',
+    flavor: 'Everything in front of him goes down. Everything on him shakes off.',
+    icon: 'stampede',
+    anim: 'aoe',
+    target: 'allEnemies',
+    ranks: [
+      { spiritCost: 12, cooldown: 4, summary: 'Deal 90% Strength to all enemies, clear your negative effects, heal 100% Instinct.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 0.9 }, { kind: 'cleanse' }, { kind: 'heal', scaling: 'instinct', multiplier: 1.0 }] },
+      { spiritCost: 12, cooldown: 4, summary: 'Deal 110% Strength to all enemies, clear your negative effects, heal 150% Instinct.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 1.1 }, { kind: 'cleanse' }, { kind: 'heal', scaling: 'instinct', multiplier: 1.5 }] },
+      { spiritCost: 12, cooldown: 4, summary: 'Deal 130% Strength to all enemies, clear your negative effects, heal 200% Instinct.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 1.3 }, { kind: 'cleanse' }, { kind: 'heal', scaling: 'instinct', multiplier: 2.0 }] },
+    ],
+  }),
+  voice: voice({
+    prologue: ['You are up. Good.', 'The bond chose. That is all there is to it.', 'Walk. One foot. Then the other. It adds up.'],
+    beforeStage1: ['Snakes ahead. They will move or they will not.'],
+    afterStage1: ['They moved.'],
+    beforeBoss: ['The big one. Same as the small ones. Takes longer.'],
+    afterBoss: ['Mercy. Heavy thing to carry. You can carry it.'],
+    onSwapIn: ['I have it.', 'Rest.'],
+    onLowHealth: ['Still standing. Keep it that way.'],
+    onVictory: ['Done. Walk.'],
+    onDefeat: ['Up.'],
+  }),
+};
+
+const eagle: AnimalDef = {
+  id: 'eagle',
+  name: 'Eagle',
+  tagline: 'Rises, then falls on the target like a stone.',
+  playstyle: 'Delayed burst',
+  physicalTraits: 'Unusually sharp eyesight, nails hardened like talons.',
+  personality: 'Sharp, focused, sees the big picture, impatient with details.',
+  color: '#5b4632',
+  art: 'eagle',
+  baseStatMods: { vitality: -1, strength: 2, instinct: 1, speed: 1 },
+  sharedSkillFlavor: {
+    basicStrike: { name: 'Eagle Claw', flavor: 'Talons first. Always talons first.' },
+    guardStance: { name: 'Wing Shield', flavor: 'Wings folded forward, a wall of feather and bone.' },
+    instinctSurge: { name: 'Piercing Screech', flavor: 'A cry that carries for miles and sharpens everything close.' },
+    secondWind: { name: 'Preen and Mend', flavor: 'Set each feather right. The body follows.' },
+    powerStrike: { name: 'Diving Strike', flavor: 'A short drop, talons first.' },
+    weaken: { name: 'Talon Rend', flavor: 'Aimed to take the strength out of the arm that swings back.' },
+    rally: { name: 'Sky Call', flavor: 'A cry pitched for one listener.' },
+  },
+  uniqueSkill: unique('eagle', {
+    name: 'Skyfall Dive',
+    flavor: 'Leap up out of reach. At the start of your next turn, come down hard.',
+    icon: 'dive',
+    anim: 'dive',
+    target: 'enemy',
+    ranks: [
+      { spiritCost: 10, cooldown: 4, summary: 'Leap up (hard to hit). Next turn: 220% Strength that ignores half of shields.', effects: [{ kind: 'special', key: 'skyfall', params: { multiplier: 2.2, ignoreGuardPct: 0.5 } }] },
+      { spiritCost: 10, cooldown: 4, summary: 'Leap up (hard to hit). Next turn: 260% Strength that ignores half of shields.', effects: [{ kind: 'special', key: 'skyfall', params: { multiplier: 2.6, ignoreGuardPct: 0.5 } }] },
+      { spiritCost: 10, cooldown: 4, summary: 'Leap up (hard to hit). Next turn: 300% Strength that ignores shields.', effects: [{ kind: 'special', key: 'skyfall', params: { multiplier: 3.0, ignoreGuardPct: 1.0 } }] },
+    ],
+  }),
+  voice: voice({
+    prologue: ['Awake. Finally. The sun has been up for an hour.', 'Why you? Wrong question. The question is where.', 'East. There is a road, and a river past it, and packs past that. I have seen them. Move.'],
+    beforeStage1: ['Two in the rocks, left and right. I can see them from here.'],
+    afterStage1: ['They went into the hollow. The hollow is where the big one is. Obviously.'],
+    beforeBoss: ['Big. Slow. Ground-bound. This will not take long.'],
+    afterBoss: ['You let it go. Fine. I can see far enough to know if it comes back.'],
+    onSwapIn: ['I have the angle.', 'Watch the sky.'],
+    onLowHealth: ['Focus. The details can wait.'],
+    onVictory: ['Next.'],
+    onDefeat: ['Up. We are not done.'],
+  }),
+};
+
+const falcon: AnimalDef = {
+  id: 'falcon',
+  name: 'Falcon',
+  tagline: 'Never stops moving. Two strikes for every one.',
+  playstyle: 'Tempo',
+  physicalTraits: 'Narrow build, keen distance eyesight, fast reflexes.',
+  personality: 'Restless, fast talking, thrives on momentum.',
+  color: '#6a6a5a',
+  art: 'falcon',
+  baseStatMods: { vitality: -1, strength: 0, instinct: 1, speed: 4 },
+  sharedSkillFlavor: {
+    basicStrike: { name: 'Talon Strike', flavor: 'Quick. Then quicker.' },
+    guardStance: { name: 'Feather Ward', flavor: 'Too fast to hit cleanly. Mostly.' },
+    instinctSurge: { name: 'Sky Shriek', flavor: 'A shriek that makes the whole valley flinch.' },
+    secondWind: { name: 'Wind Rest', flavor: 'Ride the updraft for one breath. That is enough.' },
+    powerStrike: { name: 'Full Speed Strike', flavor: 'Every bit of speed turned into one hit.' },
+    weaken: { name: 'Slashing Pass', flavor: 'Gone before the target even feels slower.' },
+    rally: { name: 'Updraft Call', flavor: 'A quick, sharp note that means lean on me, I have got the lift.' },
+  },
+  uniqueSkill: unique('falcon', {
+    name: 'Wind Sprint',
+    flavor: 'Momentum. Take another action right now.',
+    icon: 'wind',
+    anim: 'cast',
+    target: 'self',
+    ranks: [
+      { spiritCost: 10, cooldown: 4, summary: 'Take an extra action this turn.', effects: [{ kind: 'special', key: 'extraAction' }] },
+      { spiritCost: 8, cooldown: 4, summary: 'Take an extra action this turn and gain +20% Speed for 2 turns.', effects: [{ kind: 'special', key: 'extraAction' }, { kind: 'status', status: 'speedUp', duration: 2, magnitude: 0.2, target: 'self' }] },
+      { spiritCost: 6, cooldown: 3, summary: 'Take an extra action this turn and gain +30% Speed for 2 turns.', effects: [{ kind: 'special', key: 'extraAction' }, { kind: 'status', status: 'speedUp', duration: 2, magnitude: 0.3, target: 'self' }] },
+    ],
+  }),
+  voice: voice({
+    prologue: ['Up up up. You are awake, good, great, we have ground to cover.', 'Why you? Who cares. It is done. Next question.', 'No pack, no problem, plenty of road. Go go go.'],
+    beforeStage1: ['Snakes, two, rocks, left, right, easy. Go.'],
+    afterStage1: ['Ha! Did you see that? Did you see how fast? Keep moving.'],
+    beforeBoss: ['Big snake, big hood, big slow. We are already past it, it just does not know yet.'],
+    afterBoss: ['You let it live! Fine, fine, fine. Road. Go.'],
+    onSwapIn: ['Me, me, my turn!', 'Blink and you miss it.'],
+    onLowHealth: ['Faster. Being hit is a speed problem.'],
+    onVictory: ['Next! Next!'],
+    onDefeat: ['Up! We were winning!'],
+  }),
+};
+
+export const ANIMALS: Record<AnimalId, AnimalDef> = {
+  bear, moose, boar, wolf, elk, platypus, mountainLion, bobcat, buffalo, eagle, falcon,
+};
+
+export const ANIMAL_ORDER: AnimalId[] = [
+  'bear', 'moose', 'boar', 'wolf', 'elk', 'platypus', 'mountainLion', 'bobcat', 'buffalo', 'eagle', 'falcon',
+];
+
+export function getAnimal(id: AnimalId): AnimalDef {
+  const def = ANIMALS[id];
+  if (!def) throw new Error(`Unknown animal "${id}"`);
+  return def;
+}
+
+// Mahery himself is illustrated as a bonded hybrid for every animal - see PHOTO_SETS in
+// Sprite.tsx for the actual art.
+const HERO_HYBRID_ART: Partial<Record<AnimalId, ArtId>> = {
+  bear: 'mahery-bear',
+  moose: 'mahery-moose',
+  boar: 'mahery-boar',
+  wolf: 'mahery-wolf',
+  elk: 'mahery-elk',
+  mountainLion: 'mahery-mountainLion',
+  bobcat: 'mahery-bobcat',
+  buffalo: 'mahery-buffalo',
+  eagle: 'mahery-eagle',
+  platypus: 'mahery-platypus',
+  falcon: 'mahery-falcon',
+};
+
+export function heroArtId(animalId: AnimalId | null | undefined): ArtId {
+  if (!animalId) return 'mahery';
+  return HERO_HYBRID_ART[animalId] ?? 'mahery';
+}
