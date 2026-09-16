@@ -234,12 +234,14 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 }
 /* The necklace itself, shown on its own in the Items screen (not worn on a character - fitting
    one fixed-angle band photo to 11 different hybrid necks read as fake; showing the piece by
-   itself instead is both simpler and honest about what it is). */
+   itself instead is both simpler and honest about what it is). Each gem is placed at its exact
+   socket position (see NECKLACE_SOCKETS in InventoryScreen.tsx) and rotated to match that
+   socket's own tilt - the band is drawn at a 3/4 angle, so a plain upright gem icon dropped in
+   without rotation reads as floating over the socket instead of sitting in it. */
 .necklace-display { position: relative; width: 80%; max-width: 260px; margin: 0 auto 10px; }
 .necklace-band { position: relative; width: 100%; height: auto; display: block; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.55)); }
-.necklace-gem-row { position: absolute; left: 0; right: 0; top: 38%; display: flex; justify-content: center; align-items: center; gap: 4%; }
-.gem-dot { width: 13%; height: auto; display: block; }
-.gem-dot-empty { aspect-ratio: 1; border-radius: 50%; background: rgba(0,0,0,0.35); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15); }
+.gem-dot { position: absolute; width: 13%; height: auto; display: block; }
+.gem-dot-empty { width: 11%; aspect-ratio: 1; border-radius: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.35); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15); }
 .photo-sprite-shadow {
   position: absolute; left: 50%; bottom: -2px; width: 62%; height: 10px; translate: -50% 0;
   background: radial-gradient(ellipse, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0) 72%);

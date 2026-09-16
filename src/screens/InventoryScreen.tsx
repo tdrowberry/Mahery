@@ -2,6 +2,19 @@ import { useGame } from '../state/gameStore';
 import { GEM_KIND_COLOR, GEM_KIND_ICON, GEM_KIND_LABEL, getGem } from '../data/gems';
 import { MenuStrip } from '../components/MenuStrip';
 
+/** Where each of the 5 necklace slots actually sits on necklace-band.png (measured against the
+ * reference photo showing the band with all 5 stones already set) and how far it's rotated off
+ * upright - the band is drawn at a 3/4 angle, so each socket tilts a little more the further it
+ * sits from the dead-center one, mirrored left/right. Left-to-right in this array matches slot
+ * order left-to-right on the rendered band. */
+const NECKLACE_SOCKETS: { xPct: number; yPct: number; rotateDeg: number }[] = [
+  { xPct: 13.0, yPct: 59.2, rotateDeg: -18 },
+  { xPct: 28.2, yPct: 72.8, rotateDeg: -8 },
+  { xPct: 48.5, yPct: 77.9, rotateDeg: 0 },
+  { xPct: 65.9, yPct: 73.8, rotateDeg: 8 },
+  { xPct: 83.8, yPct: 61.4, rotateDeg: 18 },
+];
+
 export function InventoryScreen() {
   const save = useGame((s) => s.save);
   const equipGem = useGame((s) => s.equipGem);
@@ -23,23 +36,27 @@ export function InventoryScreen() {
           <div className="ab-title">Necklace</div>
           <div className="necklace-display">
             <img className="necklace-band" src="/art/necklace-band.png" alt="" />
-            <div className="necklace-gem-row">
-              {necklace.map((id, i) => {
-                if (!id) return <div key={i} className="gem-dot gem-dot-empty" />;
-                const gem = getGem(id);
-                const gemColor = GEM_KIND_COLOR[gem.kind];
-                return (
-                  <img
-                    key={i}
-                    src={GEM_KIND_ICON[gem.kind]}
-                    alt=""
-                    className="gem-dot"
-                    style={{ filter: `drop-shadow(0 0 3px ${gemColor}) drop-shadow(0 1px 1px rgba(0,0,0,0.6))` }}
-                    title={gem.name}
-                  />
-                );
-              })}
-            </div>
+            {necklace.map((id, i) => {
+              const socket = NECKLACE_SOCKETS[i];
+              const style = { left: `${socket.xPct}%`, top: `${socket.yPct}%` };
+              if (!id) return <div key={i} className="gem-dot gem-dot-empty" style={style} />;
+              const gem = getGem(id);
+              const gemColor = GEM_KIND_COLOR[gem.kind];
+              return (
+                <img
+                  key={i}
+                  src={GEM_KIND_ICON[gem.kind]}
+                  alt=""
+                  className="gem-dot"
+                  style={{
+                    ...style,
+                    transform: `translate(-50%, -50%) rotate(${socket.rotateDeg}deg)`,
+                    filter: `drop-shadow(0 0 3px ${gemColor}) drop-shadow(0 1px 1px rgba(0,0,0,0.6))`,
+                  }}
+                  title={gem.name}
+                />
+              );
+            })}
           </div>
           <div className="muted small" style={{ textAlign: 'center', margin: '0 0 8px' }}>
             5 gem slots. Gems only ever come from what you kill - equip one, and it shows right on the necklace.
