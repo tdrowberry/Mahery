@@ -1,5 +1,4 @@
 import { useGame } from '../state/gameStore';
-import { getEncounter } from '../data/encounters';
 import { getGem } from '../data/gems';
 import { ABILITY_POINTS_PER_LEVEL, ATTRIBUTE_POINTS_PER_LEVEL, xpToNextLevel } from '../data/progression';
 
@@ -8,12 +7,11 @@ export function ResultsScreen() {
   const save = useGame((s) => s.save);
   const closeResults = useGame((s) => s.closeResults);
   if (!results || !save) return null;
-  const enc = getEncounter(results.encounterId);
   const m = save.mahery;
   return (
     <div className="game title-screen">
       <div className="panel" style={{ width: 'min(520px, 100%)', textAlign: 'center' }}>
-        <h2>{enc.name} cleared</h2>
+        <h2>{results.encounterName} cleared</h2>
         <div style={{ fontSize: 22, margin: '8px 0' }}>+{results.xp} XP{results.marksGained > 0 && <span className="marks-gain"> · +{results.marksGained} Marks</span>}</div>
         {results.levelsGained > 0 ? (
           <div className="panel" style={{ borderColor: 'var(--accent)', margin: '10px 0' }}>

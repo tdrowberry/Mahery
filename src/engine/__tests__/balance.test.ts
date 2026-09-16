@@ -68,11 +68,91 @@ const BOSS_KIT: Setup = {
   bar: ['bear.basicStrike', 'bear.guardStance', 'bear.secondWind', 'bear.unique'],
   strengthBonus: 6, vitalityBonus: 4,
 };
+// Represents the payoff of a little extra grinding beyond a bare first-timer's kit - a couple
+// of roaming fights' worth of ability/attribute points and maybe a found gem or two.
+const CH1_GROUND_KIT: Setup = {
+  ranks: { 'bear.basicStrike': 2, 'bear.guardStance': 2, 'bear.secondWind': 1, 'bear.instinctSurge': 1, 'bear.weaken': 1, 'bear.unique': 2 },
+  bar: ['bear.basicStrike', 'bear.guardStance', 'bear.secondWind', 'bear.weaken', 'bear.unique'],
+  strengthBonus: 10, vitalityBonus: 8,
+};
 const CH2_FULL_KIT: Setup = {
   ranks: { 'bear.basicStrike': 2, 'bear.guardStance': 2, 'bear.secondWind': 2, 'bear.instinctSurge': 2, 'bear.unique': 2 },
   bar: ['bear.basicStrike', 'bear.guardStance', 'bear.secondWind', 'bear.unique'],
   strengthBonus: 12, vitalityBonus: 8,
 };
+
+// A player who never opens the Skills screen or Inventory: only the free starting Basic
+// Strike, base attributes untouched, no gems equipped. The kits above are supposed to clear
+// their fights by a wide margin *because* they represent real investment - if this build can
+// also clear a chapter boss, leveling and itemization aren't actually required to progress.
+function naivePolicy(s: BattleState): BattleState {
+  const alive = s.enemyIds.find((id) => s.units[id].health > 0)!;
+  return playerUseSkill(s, 'bear.basicStrike', alive);
+}
+
+function simulateNaive(encounterId: string, seed: number) {
+  const save = createNewSave('bear');
+  const enc = getEncounter(encounterId);
+  let s = createBattle({
+    encounterId, animal: getAnimal('bear'), seed,
+    mahery: { attributes: save.mahery.attributes, skillRanks: save.mahery.skillRanks, actionBar: save.mahery.actionBar },
+    enemies: enc.enemyIds.map(getEnemy),
+  });
+  let guard = 0;
+  while (s.phase !== 'victory' && s.phase !== 'defeat' && guard++ < 500) {
+    s = s.phase === 'playerTurn' ? naivePolicy(s) : advance(s);
+  }
+  return { won: s.phase === 'victory', rounds: s.round };
+}
+
+function naiveWinRate(encounterId: string, n = 150) {
+  let wins = 0;
+  for (let seed = 1; seed <= n; seed++) if (simulateNaive(encounterId, seed * 7919).won) wins += 1;
+  return wins / n;
+}
+
+describe('a totally unspecced build (never leveled, never geared)', () => {
+  it('can still limp through the very first fight', () => {
+    const rate = naiveWinRate('ch1-s1');
+    console.log(`naive, ch1-s1: win ${Math.round(rate * 100)}%`);
+    expect(rate).toBeGreaterThan(0.5);
+  });
+  it('can still get through the middle of chapter 1 (regular fights stay forgiving)', () => {
+    const rate = naiveWinRate('ch1-s3');
+    console.log(`naive, ch1-s3 (3 skulkers): win ${Math.round(rate * 100)}%`);
+    expect(rate).toBeGreaterThan(0.7);
+  });
+  it('cannot beat the chapter 1 boss', () => {
+    const rate = naiveWinRate('ch1-s5');
+    console.log(`naive, ch1-s5 boss: win ${Math.round(rate * 100)}%`);
+    expect(rate).toBeLessThan(0.03);
+  });
+  it('cannot beat the chapter 2 boss', () => {
+    const rate = naiveWinRate('ch2-s5');
+    console.log(`naive, ch2-s5 boss: win ${Math.round(rate * 100)}%`);
+    expect(rate).toBeLessThan(0.03);
+  });
+  it('cannot beat the chapter 3 boss', () => {
+    const rate = naiveWinRate('ch3-s5');
+    console.log(`naive, ch3-s5 boss: win ${Math.round(rate * 100)}%`);
+    expect(rate).toBeLessThan(0.03);
+  });
+  it('cannot beat the chapter 4 boss', () => {
+    const rate = naiveWinRate('ch4-s5');
+    console.log(`naive, ch4-s5 boss: win ${Math.round(rate * 100)}%`);
+    expect(rate).toBeLessThan(0.03);
+  });
+  it('cannot beat the chapter 5 boss', () => {
+    const rate = naiveWinRate('ch5-s5');
+    console.log(`naive, ch5-s5 boss: win ${Math.round(rate * 100)}%`);
+    expect(rate).toBeLessThan(0.03);
+  });
+  it('cannot beat Yorrun', () => {
+    const rate = naiveWinRate('final-s2');
+    console.log(`naive, final-s2 boss: win ${Math.round(rate * 100)}%`);
+    expect(rate).toBeLessThan(0.03);
+  });
+});
 
 describe('chapter 1 balance', () => {
   it('stage 1 is winnable with the starting kit', () => {
@@ -81,12 +161,21 @@ describe('chapter 1 balance', () => {
     expect(r.rate).toBeGreaterThan(0.8);
     expect(r.avgRounds).toBeLessThan(12);
   });
-  it('the chapter 1 boss is beatable with Resolve, but not trivial', () => {
+  it('the chapter 1 boss is a real risk for a bare-minimum kit, not a reliable win', () => {
+    // With slower point gain, a level-4 kit that just cleared stages 1-4 once is *supposed*
+    // to be under-geared for this fight - the intent is that a first-timer feels real risk
+    // and comes back after grinding a roaming fight or two / better gems, not that this
+    // exact kit reliably clears it. See CH1_GROUND_KIT below for the "a bit more invested" case.
     const r = winRate('ch1-s5', BOSS_KIT);
-    console.log(`ch1-s5 boss: win ${Math.round(r.rate * 100)}%, avg ${r.avgRounds.toFixed(1)} rounds`);
-    expect(r.rate).toBeGreaterThan(0.55);
-    expect(r.rate).toBeLessThan(0.99);
-    expect(r.avgRounds).toBeLessThan(20);
+    console.log(`ch1-s5 boss (bare-minimum kit): win ${Math.round(r.rate * 100)}%, avg ${r.avgRounds.toFixed(1)} rounds`);
+    expect(r.rate).toBeGreaterThan(0.1);
+    expect(r.rate).toBeLessThan(0.6);
+  });
+  it('the chapter 1 boss is comfortably beatable once you grind a little past bare-minimum', () => {
+    const r = winRate('ch1-s5', CH1_GROUND_KIT);
+    console.log(`ch1-s5 boss (a little grinding): win ${Math.round(r.rate * 100)}%, avg ${r.avgRounds.toFixed(1)} rounds`);
+    expect(r.rate).toBeGreaterThan(0.7);
+    expect(r.avgRounds).toBeLessThan(22);
   });
 });
 

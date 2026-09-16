@@ -83,6 +83,8 @@ export interface Unit {
   skills: (ActiveSkill | null)[];
   moves?: EnemyMove[];
   isBoss: boolean;
+  /** renders bigger with a red-eyed tint - see EnemyDef.corrupted */
+  corrupted?: boolean;
   pending?: PendingStrike;
   chargedAttack?: ChargedAttack;
   /** effectAnim: which skill.anim landed this hit, so the UI can show a matching impact effect
@@ -184,9 +186,10 @@ export function createBattle(setup: BattleSetup): BattleState {
     const sp = maxSpirit(def.attributes);
     units[id] = {
       id, name: def.title ? `${def.name} ${def.title}` : `${def.name}${suffix}`, side: 'enemy', kind: 'enemy',
-      color: def.color, art: def.art, attributes: { ...def.attributes },
+      color: def.color, art: def.corrupted ? heroArtId(animal.id) : def.art, attributes: { ...def.attributes },
       maxHealth: hp, health: hp, maxSpirit: sp, spirit: sp, evasionBonus: def.evasionBonus ?? 0,
       statuses: [], cooldowns: {}, usedOnce: {}, skills: def.moves, moves: def.moves, isBoss: def.isBoss,
+      corrupted: def.corrupted,
     };
     enemyIds.push(id);
   });

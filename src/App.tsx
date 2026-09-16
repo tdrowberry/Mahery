@@ -8,6 +8,7 @@ import { BondScreen } from './screens/BondScreen';
 import { HubScreen } from './screens/HubScreen';
 import { SkillScreen } from './screens/SkillScreen';
 import { InventoryScreen } from './screens/InventoryScreen';
+import { ShopScreen } from './screens/ShopScreen';
 import { BattleScreen } from './screens/BattleScreen';
 import { ResultsScreen } from './screens/ResultsScreen';
 import { EndingScreen } from './screens/EndingScreen';
@@ -21,6 +22,7 @@ function CurrentScreen() {
     case 'hub': return <HubScreen />;
     case 'skills': return <SkillScreen />;
     case 'inventory': return <InventoryScreen />;
+    case 'shop': return <ShopScreen />;
     case 'battle': return <BattleScreen />;
     case 'results': return <ResultsScreen />;
     case 'ending': return <EndingScreen />;

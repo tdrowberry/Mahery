@@ -143,6 +143,41 @@ export function getEncounter(id: string): EncounterDef {
   return e;
 }
 
+/** Every regular (non-boss) enemy id introduced by chapter `maxChapter` or earlier - the pool a
+ * roaming fight draws from, so it never throws something at you the story hasn't reached yet. */
+export function regularEnemyPool(maxChapter: number): string[] {
+  const ids = new Set<string>();
+  for (const enc of ENCOUNTERS) {
+    if (enc.chapter <= maxChapter && !enc.isBoss) enc.enemyIds.forEach((id) => ids.add(id));
+  }
+  return [...ids];
+}
+
+let roamingSeq = 0;
+
+/**
+ * A generated, off-road fight against 1-2 already-encountered creatures: not a story stage,
+ * just a repeatable way to earn Marks and XP between campaign attempts. See gameStore's
+ * startRoamingEncounter and the `isRoaming` handling in finishBattle/closeResults.
+ */
+export function createRoamingEncounter(chapter: number): EncounterDef {
+  const pool = regularEnemyPool(chapter);
+  const count = pool.length > 1 && Math.random() < 0.5 ? 2 : 1;
+  const enemyIds = Array.from({ length: count }, () => pool[Math.floor(Math.random() * pool.length)]);
+  roamingSeq += 1;
+  return {
+    id: `roaming-${roamingSeq}`,
+    chapter,
+    stage: 0,
+    name: 'Roaming Fight',
+    subtitle: enemyIds.length > 1 ? 'Two creatures cross your path off the road.' : 'A creature crosses your path off the road.',
+    enemyIds,
+    xpReward: 40 + chapter * 12,
+    isBoss: false,
+    isRoaming: true,
+  };
+}
+
 export interface ChapterDef { number: number; name: string; encounterIds: string[] }
 
 export const CHAPTERS: ChapterDef[] = [

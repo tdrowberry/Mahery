@@ -24,6 +24,9 @@ export function MenuStrip({ current }: { current: Screen }) {
           <span className="ms-glyph">▣</span><span>Items</span>
           {bagCount > 0 && <span className="pip">{bagCount}</span>}
         </button>
+        <button className={`ms-btn ${current === 'shop' ? 'on' : ''}`} onClick={() => goTo('shop')} title="Trade Marks for gems" data-testid="ms-shop">
+          <span className="ms-glyph">⛃</span><span>Shop</span>
+        </button>
         <button className="ms-btn" onClick={quitToTitle} title="Save and return to the title screen">
           <span className="ms-glyph">⏏</span><span>Save &amp; Quit</span>
         </button>

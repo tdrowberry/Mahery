@@ -10,6 +10,7 @@ import { MenuStrip } from '../components/MenuStrip';
 export function HubScreen() {
   const save = useGame((s) => s.save);
   const startEncounter = useGame((s) => s.startEncounter);
+  const startRoamingEncounter = useGame((s) => s.startRoamingEncounter);
   if (!save) return null;
   const animal = getAnimal(save.animalId);
   const m = save.mahery;
@@ -51,6 +52,13 @@ export function HubScreen() {
                 </div>
               );
             })}
+          </div>
+          <div className="stage" style={{ marginTop: 10 }} data-testid="stage-roaming">
+            <div>
+              <div className="st-name">Roam off the road</div>
+              <div className="small muted">A random creature, for Marks and a little XP. No story, no risk to your progress.</div>
+            </div>
+            <button className="btn" onClick={startRoamingEncounter} data-testid="hunt-btn">Hunt</button>
           </div>
           {chapterDone && (
             <div className="chapter-done">

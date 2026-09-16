@@ -849,7 +849,7 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
   const charging = !down && unit.statuses.some((st) => st.id === 'charging');
   const cls = [
     down ? 'down' : '', active ? 'active-glow' : '', targetable && !down ? 'targetable' : '',
-    airborne ? 'airborne' : '', charging ? 'charging' : '',
+    airborne ? 'airborne' : '', charging ? 'charging' : '', unit.corrupted ? 'corrupted-kin' : '',
   ].filter(Boolean).join(' ');
   const hit = unit.lastHit;
   // A real hit shakes the target; a dodge or a killing blow (already collapsing) does not.
@@ -875,7 +875,7 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
           <Sprite
             art={unit.art}
             color={unit.color}
-            size={unit.isBoss ? size * 1.2 : size}
+            size={unit.corrupted ? size * 1.3 : unit.isBoss ? size * 1.2 : size}
             flip={unit.side === 'enemy'}
             className={cls}
             title={unit.name}

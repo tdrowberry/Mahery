@@ -16,23 +16,32 @@ const ATTRS: { key: keyof Attributes; label: string; color: string; note: string
   { key: 'speed', label: 'Speed', color: '#e8c15a', note: 'Turn order, crit, evasion' },
 ];
 
-// Tree layout in a 300x350 box: basic strike at the top branches three ways, each branch
-// grows a second node, then everything funnels down to the signature skill at the bottom.
+// Tree layout in a 300x410 box, 3 columns: basic strike branches three ways, each grows a
+// second-tier node, those grow a third tier, then everything funnels down to the signature
+// skill at the bottom. Same width as the original 8-skill tree (the grid column it sits in
+// is sized for it); just taller, for the extra tier.
 const TREE_POS: Record<string, { x: number; y: number }> = {
-  basicStrike: { x: 150, y: 32 },
-  guardStance: { x: 55, y: 108 },
-  powerStrike: { x: 150, y: 108 },
-  secondWind: { x: 245, y: 108 },
-  weaken: { x: 55, y: 190 },
-  instinctSurge: { x: 150, y: 190 },
-  rally: { x: 245, y: 190 },
-  unique: { x: 150, y: 280 },
+  basicStrike: { x: 150, y: 25 },
+  guardStance: { x: 50, y: 95 },
+  powerStrike: { x: 150, y: 95 },
+  secondWind: { x: 250, y: 95 },
+  weaken: { x: 50, y: 165 },
+  instinctSurge: { x: 150, y: 165 },
+  rally: { x: 250, y: 165 },
+  rendingClaw: { x: 50, y: 235 },
+  secondBreath: { x: 150, y: 235 },
+  quickStrike: { x: 250, y: 235 },
+  hamstring: { x: 150, y: 305 },
+  unique: { x: 150, y: 375 },
 };
 const TREE_LINKS: [string, string][] = [
-  ['basicStrike', 'guardStance'], ['basicStrike', 'powerStrike'], ['basicStrike', 'secondWind'],
+  ['basicStrike', 'guardStance'], ['basicStrike', 'powerStrike'], ['basicStrike', 'secondWind'], ['basicStrike', 'secondBreath'],
   ['guardStance', 'weaken'], ['powerStrike', 'weaken'],
   ['guardStance', 'instinctSurge'], ['secondWind', 'instinctSurge'],
   ['secondWind', 'rally'],
+  ['weaken', 'rendingClaw'], ['powerStrike', 'rendingClaw'],
+  ['instinctSurge', 'quickStrike'], ['secondBreath', 'quickStrike'],
+  ['weaken', 'hamstring'], ['rendingClaw', 'hamstring'],
   ['guardStance', 'unique'],
 ];
 
@@ -89,7 +98,7 @@ export function SkillScreen() {
         <div className="steel ab-panel">
           <div className="ab-title">Ability Tree</div>
           <div className="tree-box">
-            <svg className="tree-links" viewBox="0 0 300 350" width="300" height="350">
+            <svg className="tree-links" viewBox="0 0 300 410" width="300" height="410">
               {TREE_LINKS.map(([a, b]) => {
                 const pa = TREE_POS[a]; const pb = TREE_POS[b];
                 const lit = (ranks[skills.find((s) => keyOf(s) === b)!.id] ?? 0) > 0;

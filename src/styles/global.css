@@ -187,6 +187,15 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .sprite.targetable { cursor: pointer; }
 .sprite.targetable:hover { transform: scale(1.08); }
 .sprite.targetable:hover svg, .sprite.targetable:hover .photo-sprite { filter: drop-shadow(0 0 3px var(--bad)) drop-shadow(0 0 16px rgba(224,107,92,0.8)); }
+/* Kin enemies (the old camp, the old chief) render as a bigger version of the player's own
+   hybrid photo (see Unit.corrupted in engine/combat.ts) - this glow is the "red eyes" cue,
+   approximated as a red glow over the face region rather than eye-precise masking, since the
+   underlying art is a flat photo with no per-feature layers to target. */
+.sprite.corrupted-kin::after {
+  content: ''; position: absolute; top: 9%; left: 27%; right: 27%; height: 9%;
+  background: radial-gradient(ellipse at center, rgba(230,30,30,0.9) 0%, rgba(230,30,30,0.4) 50%, transparent 78%);
+  filter: blur(2px); pointer-events: none; mix-blend-mode: screen;
+}
 .sprite-label { font-size: 12px; color: #ffb3a8; font-weight: 600; text-shadow: 0 1px 3px #000; }
 
 /* Real-photo sprites (Mahery, his hybrid forms, companions, and the two enemy lines): 2 or 3
@@ -574,7 +583,7 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .ability-screen { display: grid; grid-template-columns: 330px 1fr 300px; gap: 10px; align-items: start; }
 .ab-panel { display: flex; flex-direction: column; }
 .ab-center { display: flex; flex-direction: column; gap: 10px; }
-.tree-box { position: relative; width: 300px; height: 350px; margin: 0 auto; background: rgba(0,0,0,0.25); border-radius: 6px; }
+.tree-box { position: relative; width: 300px; height: 410px; margin: 0 auto; background: rgba(0,0,0,0.25); border-radius: 6px; }
 .tree-links { position: absolute; inset: 0; }
 .tree-links line { stroke: #14171b; stroke-width: 6; stroke-linecap: round; }
 .tree-links line.lit { stroke: #e0b64a; stroke-width: 4; filter: drop-shadow(0 0 4px rgba(224,182,74,0.7)); }

@@ -340,7 +340,7 @@ describe('progression', () => {
   it('levels up and grants points', () => {
     const r = gainXp({ level: 1, xp: 0, abilityPoints: 3, attributePoints: 0 }, 100);
     expect(r.levelsGained).toBe(1);
-    expect(r.state).toEqual({ level: 2, xp: 0, abilityPoints: 5, attributePoints: 3 });
+    expect(r.state).toEqual({ level: 2, xp: 0, abilityPoints: 4, attributePoints: 2 });
     expect(xpToNextLevel(2)).toBe(150);
   });
   it('skill tree prerequisites gate unlocks', () => {

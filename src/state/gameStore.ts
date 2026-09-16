@@ -1,9 +1,9 @@
 import { create } from 'zustand';
-import type { AnimalId, Attributes, DialogueLine, Stance } from '../data/types';
+import type { AnimalId, Attributes, DialogueLine, EncounterDef, Stance } from '../data/types';
 import { getAnimal } from '../data/animals';
-import { getChapter, getEncounter } from '../data/encounters';
+import { createRoamingEncounter, getChapter, getEncounter } from '../data/encounters';
 import { getEnemy } from '../data/enemies';
-import { getGem, necklaceBonuses } from '../data/gems';
+import { getGem, necklaceBonuses, shopPrice } from '../data/gems';
 import { getScene, PROLOGUE_WAKE } from '../data/story';
 import { gainXp, MAX_RANK, RANK_COST } from '../data/progression';
 import { checkUnlock, findSkill, getAnimalSkills } from '../engine/skills';
@@ -15,7 +15,7 @@ import {
   clearSlot, createNewSave, loadSlot, writeSlot, type SaveFile, type SlotNumber,
 } from './saveFormat';
 
-export type Screen = 'title' | 'story' | 'bond' | 'hub' | 'skills' | 'battle' | 'results' | 'inventory' | 'ending';
+export type Screen = 'title' | 'story' | 'bond' | 'hub' | 'skills' | 'battle' | 'results' | 'inventory' | 'shop' | 'ending';
 
 export interface Dialogue {
   lines: DialogueLine[];
@@ -29,6 +29,7 @@ export interface Dialogue {
 
 export interface BattleResults {
   encounterId: string;
+  encounterName: string;
   xp: number;
   levelsGained: number;
   newLevel: number;
@@ -48,6 +49,9 @@ interface GameState {
   pendingEncounterId: string | null;
   battle: BattleState | null;
   results: BattleResults | null;
+  /** the currently-active generated off-road fight, if `battle.encounterId` points at one -
+   * kept alongside `battle` since roaming encounters aren't in the static ENCOUNTERS list. */
+  roamingEncounter: EncounterDef | null;
 
   // navigation
   goTo: (screen: Screen) => void;
@@ -71,8 +75,12 @@ interface GameState {
   unequipGem: (slotIndex: number) => void;
   sellItem: (itemId: string) => void;
 
+  // shop
+  buyGem: (gemId: string) => string | null;
+
   // battle
   startEncounter: (encounterId: string) => void;
+  startRoamingEncounter: () => void;
   battleUseSkill: (skillId: string, targetId?: string) => void;
   battleSelect: (unitId: 'mahery' | 'companion') => void;
   battleSetStance: (stance: Stance) => void;
@@ -116,6 +124,7 @@ export const useGame = create<GameState>((set, get) => ({
   pendingEncounterId: null,
   battle: null,
   results: null,
+  roamingEncounter: null,
 
   goTo: (screen) => set({ screen }),
 
@@ -267,6 +276,22 @@ export const useGame = create<GameState>((set, get) => ({
     });
   },
 
+  buyGem: (gemId) => {
+    const { save } = get();
+    if (!save) return 'No save loaded.';
+    const def = getGem(gemId);
+    const price = shopPrice(def.level);
+    if (save.mahery.marks < price) return 'Not enough Marks.';
+    set({
+      save: persist(get, {
+        ...save,
+        mahery: { ...save.mahery, marks: save.mahery.marks - price },
+        inventory: { ...save.inventory, items: [...save.inventory.items, gemId] },
+      }),
+    });
+    return null;
+  },
+
   startEncounter: (encounterId) => {
     const { save } = get();
     if (!save) return;
@@ -284,6 +309,14 @@ export const useGame = create<GameState>((set, get) => ({
       return;
     }
     beginBattle(set, get, encounterId);
+  },
+
+  startRoamingEncounter: () => {
+    const { save } = get();
+    if (!save) return;
+    const enc = createRoamingEncounter(save.story.chapter);
+    set({ roamingEncounter: enc });
+    beginBattle(set, get, enc.id);
   },
 
   battleUseSkill: (skillId, targetId) => {
@@ -322,20 +355,15 @@ export const useGame = create<GameState>((set, get) => ({
     beginBattle(set, get, battle.encounterId);
   },
 
-  leaveBattle: () => set({ battle: null, pendingEncounterId: null, screen: 'hub' }),
+  leaveBattle: () => set({ battle: null, roamingEncounter: null, pendingEncounterId: null, screen: 'hub' }),
 
   finishBattle: () => {
     const { battle, save } = get();
     if (!battle || !save || battle.phase !== 'victory') return;
-    const enc = getEncounter(battle.encounterId);
-    const firstClear = !save.story.clearedStages.includes(enc.id);
-    const { state: lv, levelsGained } = gainXp(
-      { level: save.mahery.level, xp: save.mahery.xp, abilityPoints: save.mahery.abilityPoints, attributePoints: save.mahery.attributePoints },
-      enc.xpReward,
-    );
-    const clearedStages = firstClear ? [...save.story.clearedStages, enc.id] : save.story.clearedStages;
+    const enc = resolveEncounter(get().roamingEncounter, battle.encounterId);
 
-    // Loot and marks roll fresh on every clear, so replaying a stage stays worth doing.
+    // Loot and marks roll fresh on every clear, so replaying a stage (or another roaming
+    // fight) stays worth doing.
     let marksGained = 0;
     const droppedItems: string[] = [];
     for (const enemyId of enc.enemyIds) {
@@ -345,6 +373,38 @@ export const useGame = create<GameState>((set, get) => ({
         if (Math.random() < drop.chance) droppedItems.push(drop.itemId);
       }
     }
+
+    if (enc.isRoaming) {
+      // Off the road entirely: Marks, XP and any loot, but no story progress of any kind.
+      const { state: lv, levelsGained } = gainXp(
+        { level: save.mahery.level, xp: save.mahery.xp, abilityPoints: save.mahery.abilityPoints, attributePoints: save.mahery.attributePoints },
+        enc.xpReward,
+      );
+      const next: SaveFile = {
+        ...save,
+        mahery: { ...save.mahery, ...lv, marks: save.mahery.marks + marksGained },
+        inventory: { ...save.inventory, items: [...save.inventory.items, ...droppedItems] },
+      };
+      // roamingEncounter stays in state until closeResults - the Results screen still needs
+      // to resolve encounterId back to a name/chapter for anything that looks it up again.
+      set({
+        save: persist(get, next),
+        results: {
+          encounterId: enc.id, encounterName: enc.name, xp: enc.xpReward, levelsGained, newLevel: lv.level,
+          firstClear: false, marksGained, droppedItems, chapterAdvanced: false,
+        },
+        battle: null,
+        screen: 'results',
+      });
+      return;
+    }
+
+    const firstClear = !save.story.clearedStages.includes(enc.id);
+    const { state: lv, levelsGained } = gainXp(
+      { level: save.mahery.level, xp: save.mahery.xp, abilityPoints: save.mahery.abilityPoints, attributePoints: save.mahery.attributePoints },
+      enc.xpReward,
+    );
+    const clearedStages = firstClear ? [...save.story.clearedStages, enc.id] : save.story.clearedStages;
 
     let story = { ...save.story, clearedStages, stage: Math.max(save.story.stage, enc.stage + 1) };
     let chapterAdvanced = false;
@@ -364,7 +424,7 @@ export const useGame = create<GameState>((set, get) => ({
     };
     set({
       save: persist(get, next),
-      results: { encounterId: enc.id, xp: enc.xpReward, levelsGained, newLevel: lv.level, firstClear, marksGained, droppedItems, chapterAdvanced },
+      results: { encounterId: enc.id, encounterName: enc.name, xp: enc.xpReward, levelsGained, newLevel: lv.level, firstClear, marksGained, droppedItems, chapterAdvanced },
       battle: null,
       screen: 'results',
     });
@@ -373,6 +433,10 @@ export const useGame = create<GameState>((set, get) => ({
   closeResults: () => {
     const { results, save } = get();
     if (!results || !save) { set({ results: null, screen: 'hub' }); return; }
+    if (get().roamingEncounter?.id === results.encounterId) {
+      set({ results: null, roamingEncounter: null, screen: 'hub' });
+      return;
+    }
     const enc = getEncounter(results.encounterId);
     const animal = getAnimal(save.animalId);
     const sceneKey = enc.sceneAfter ? `seen:${enc.sceneAfter}` : null;
@@ -402,6 +466,13 @@ export const useGame = create<GameState>((set, get) => ({
   },
 }));
 
+/** `encounterId` is either a real story stage (looked up normally) or the id of the one
+ * generated roaming fight currently stored in state - roaming ids never live in ENCOUNTERS.
+ * Exported so screens that need the encounter mid-battle (BattleScreen) can resolve it too. */
+export function resolveEncounter(roaming: EncounterDef | null, encounterId: string): EncounterDef {
+  return roaming && roaming.id === encounterId ? roaming : getEncounter(encounterId);
+}
+
 function beginBattle(
   set: (partial: Partial<GameState>) => void,
   get: () => GameState,
@@ -409,7 +480,7 @@ function beginBattle(
 ) {
   const { save } = get();
   if (!save) return;
-  const enc = getEncounter(encounterId);
+  const enc = resolveEncounter(get().roamingEncounter, encounterId);
   const animal = getAnimal(save.animalId);
   const battle = createBattle({
     encounterId,

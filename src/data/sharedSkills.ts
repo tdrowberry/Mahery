@@ -114,8 +114,66 @@ export const SHARED_SKILLS: Record<SharedKind, SharedSkillTemplate> = {
       { spiritCost: 7, cooldown: 3, summary: "Heal the ally 180% Instinct and cleanse their negative effects.", effects: [{ kind: 'heal', scaling: 'instinct', multiplier: 1.8 }, { kind: 'cleanse' }] },
     ],
   },
+  secondBreath: {
+    sharedKind: 'secondBreath',
+    icon: 'heal',
+    anim: 'cast',
+    target: 'self',
+    requires: [{ skillId: '{animal}.basicStrike', rank: 1 }],
+    ranks: [
+      { spiritCost: 0, cooldown: 4, summary: 'Restore 10 Spirit.', effects: [{ kind: 'restoreSpirit', amount: 10 }] },
+      { spiritCost: 0, cooldown: 4, summary: 'Restore 14 Spirit.', effects: [{ kind: 'restoreSpirit', amount: 14 }] },
+      { spiritCost: 0, cooldown: 3, summary: 'Restore 18 Spirit.', effects: [{ kind: 'restoreSpirit', amount: 18 }] },
+    ],
+  },
+  quickStrike: {
+    sharedKind: 'quickStrike',
+    icon: 'wind',
+    anim: 'cast',
+    target: 'self',
+    requiresAny: [
+      [{ skillId: '{animal}.instinctSurge', rank: 1 }],
+      [{ skillId: '{animal}.secondBreath', rank: 1 }],
+    ],
+    ranks: [
+      { spiritCost: 6, cooldown: 4, summary: '+15% Speed for 3 turns.', effects: [{ kind: 'status', status: 'speedUp', duration: 3, magnitude: 0.15, target: 'self' }] },
+      { spiritCost: 6, cooldown: 4, summary: '+20% Speed for 3 turns.', effects: [{ kind: 'status', status: 'speedUp', duration: 3, magnitude: 0.2, target: 'self' }] },
+      { spiritCost: 6, cooldown: 4, summary: '+25% Speed for 3 turns.', effects: [{ kind: 'status', status: 'speedUp', duration: 3, magnitude: 0.25, target: 'self' }] },
+    ],
+  },
+  rendingClaw: {
+    sharedKind: 'rendingClaw',
+    icon: 'shadow',
+    anim: 'strike',
+    target: 'enemy',
+    requiresAny: [
+      [{ skillId: '{animal}.weaken', rank: 1 }],
+      [{ skillId: '{animal}.powerStrike', rank: 1 }],
+    ],
+    ranks: [
+      { spiritCost: 7, cooldown: 3, summary: 'Deal 70% Strength damage and bleed for 25% Strength over 3 turns.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 0.7 }, { kind: 'status', status: 'bleed', duration: 3, magnitude: 0.25, scaling: 'strength', target: 'target' }] },
+      { spiritCost: 7, cooldown: 3, summary: 'Deal 80% Strength damage and bleed for 30% Strength over 3 turns.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 0.8 }, { kind: 'status', status: 'bleed', duration: 3, magnitude: 0.3, scaling: 'strength', target: 'target' }] },
+      { spiritCost: 7, cooldown: 3, summary: 'Deal 90% Strength damage and bleed for 35% Strength over 3 turns.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 0.9 }, { kind: 'status', status: 'bleed', duration: 3, magnitude: 0.35, scaling: 'strength', target: 'target' }] },
+    ],
+  },
+  hamstring: {
+    sharedKind: 'hamstring',
+    icon: 'pounce',
+    anim: 'strike',
+    target: 'enemy',
+    requiresAny: [
+      [{ skillId: '{animal}.weaken', rank: 1 }],
+      [{ skillId: '{animal}.rendingClaw', rank: 1 }],
+    ],
+    ranks: [
+      { spiritCost: 6, cooldown: 3, summary: 'Deal 70% Strength damage and slow the target 20% for 2 turns.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 0.7 }, { kind: 'status', status: 'speedDown', duration: 2, magnitude: 0.2, target: 'target' }] },
+      { spiritCost: 6, cooldown: 3, summary: 'Deal 80% Strength damage and slow the target 25% for 2 turns.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 0.8 }, { kind: 'status', status: 'speedDown', duration: 2, magnitude: 0.25, target: 'target' }] },
+      { spiritCost: 6, cooldown: 3, summary: 'Deal 90% Strength damage and slow the target 30% for 3 turns.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 0.9 }, { kind: 'status', status: 'speedDown', duration: 3, magnitude: 0.3, target: 'target' }] },
+    ],
+  },
 };
 
 export const SHARED_KINDS: SharedKind[] = [
   'basicStrike', 'guardStance', 'instinctSurge', 'secondWind', 'powerStrike', 'weaken', 'rally',
+  'secondBreath', 'quickStrike', 'rendingClaw', 'hamstring',
 ];

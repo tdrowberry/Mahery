@@ -5,7 +5,8 @@ export type Scaling = 'strength' | 'instinct' | 'vitality';
 export type TargetRule = 'enemy' | 'allEnemies' | 'self' | 'ally';
 export type SharedKind =
   | 'basicStrike' | 'guardStance' | 'instinctSurge' | 'secondWind'
-  | 'powerStrike' | 'weaken' | 'rally';
+  | 'powerStrike' | 'weaken' | 'rally'
+  | 'secondBreath' | 'quickStrike' | 'rendingClaw' | 'hamstring';
 
 /** How the party member you are not directly controlling picks its moves each turn. */
 export type Stance = 'aggressive' | 'balanced' | 'support';
@@ -206,6 +207,10 @@ export interface EnemyDef {
   moves: EnemyMove[];
   loot?: LootDrop[];
   marksReward?: number; // trade marks dropped alongside XP
+  /** Renders as a bigger, red-eyed version of the player's own bonded hybrid form instead of
+   * this def's `art` - for kin/clan enemies (the old camp, the old chief) meant to visually
+   * echo Mahery himself. Resolved against the current save's animal in engine/combat.ts. */
+  corrupted?: boolean;
 }
 
 export interface DialogueLine {
@@ -225,6 +230,9 @@ export interface EncounterDef {
   /** scene ids from data/story.ts, resolved against the bonded animal's voice at runtime */
   sceneBefore?: string;
   sceneAfter?: string;
+  /** a generated, repeatable off-road fight - not part of the story: no clearedStages entry,
+   * no chapter advancement, no scenes. See engine/encounters.ts createRoamingEncounter. */
+  isRoaming?: boolean;
 }
 
 // ---------- Gems ----------

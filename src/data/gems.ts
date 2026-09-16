@@ -65,6 +65,28 @@ export function getGem(id: string): GemDef {
   return def;
 }
 
+// The shop: buying is meaningfully pricier than selling (roughly 2.5-3x a gem's sell value),
+// so selling off a gem you've outgrown funds only *part* of the next one - a real economy loop,
+// not a costless flip. Its stock ceiling rises with the story so an early chapter can't just
+// buy its way to a Radiant stone.
+const SHOP_PRICE = [15, 35, 75, 140, 240];
+
+export function shopPrice(level: number): number {
+  return SHOP_PRICE[level - 1] ?? SHOP_PRICE[SHOP_PRICE.length - 1];
+}
+
+/** Highest gem level the shop stocks at this point in the story. */
+export function shopLevelCap(chapter: number): number {
+  return Math.min(5, chapter + 1);
+}
+
+/** Every gem currently for sale, cheapest and lowest-level first within each kind. */
+export function shopInventory(chapter: number): GemDef[] {
+  const cap = shopLevelCap(chapter);
+  const kinds: GemKind[] = ['vitality', 'strength', 'instinct', 'speed', 'guard'];
+  return kinds.flatMap((kind) => Array.from({ length: cap }, (_, i) => GEMS[`${kind}${i + 1}`]));
+}
+
 /** Sum of every equipped gem's bonus: flat attribute points, plus a capped % damage reduction. */
 export function necklaceBonuses(necklace: (string | null)[]): { attrs: Attributes; guardPct: number } {
   const attrs: Attributes = { vitality: 0, strength: 0, instinct: 0, speed: 0 };

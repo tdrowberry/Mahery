@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useGame } from '../state/gameStore';
-import { getEncounter } from '../data/encounters';
+import { resolveEncounter, useGame } from '../state/gameStore';
 import { CHAPTER_BACKGROUNDS } from '../data/backgrounds';
 import type { ActiveSkill, Stance, StatusId } from '../data/types';
 import {
@@ -47,6 +46,7 @@ function HudRow({ unit, active, directing, align }: { unit: Unit; active?: boole
 export function BattleScreen() {
   const battle = useGame((s) => s.battle);
   const save = useGame((s) => s.save);
+  const roamingEncounter = useGame((s) => s.roamingEncounter);
   const battleUseSkill = useGame((s) => s.battleUseSkill);
   const battleSelect = useGame((s) => s.battleSelect);
   const battleSetStance = useGame((s) => s.battleSetStance);
@@ -69,7 +69,7 @@ export function BattleScreen() {
   useEffect(() => { setArmed(null); }, [battle?.currentActor, battle?.round]);
 
   if (!battle) return null;
-  const enc = getEncounter(battle.encounterId);
+  const enc = resolveEncounter(roamingEncounter, battle.encounterId);
   const bg = CHAPTER_BACKGROUNDS[enc.chapter];
   const directed = activeUnit(battle); // who the player is currently giving orders to
   const other = otherPartyUnit(battle); // fights automatically per the ally stance
