@@ -7,7 +7,7 @@ export const sharedSkillId = (animalId: string, kind: SharedKind) => `${animalId
 
 const fillAnimal = (skillId: string, animalId: string) => skillId.replace('{animal}', animalId);
 
-/** Build the animal's 5 skills: 4 shared (template + flavor) and 1 unique. */
+/** Build the animal's 12 skills: 11 shared (template + flavor) and 1 unique. */
 export function getAnimalSkills(animal: AnimalDef): SkillDef[] {
   const shared = SHARED_KINDS.map<SkillDef>((kind) => {
     const t = SHARED_SKILLS[kind];
@@ -23,7 +23,6 @@ export function getAnimalSkills(animal: AnimalDef): SkillDef[] {
       target: t.target,
       ranks: t.ranks,
       requires: t.requires?.map((r) => ({ ...r, skillId: fillAnimal(r.skillId, animal.id) })),
-      requiresAny: t.requiresAny?.map((g) => g.map((r) => ({ ...r, skillId: fillAnimal(r.skillId, animal.id) }))),
       minLevel: t.minLevel,
     };
   });
@@ -36,7 +35,7 @@ export function findSkill(animal: AnimalDef, skillId: string): SkillDef | undefi
 }
 
 export function resolveSkill(def: SkillDef, rank: number): ActiveSkill {
-  const r = Math.min(MAX_RANK, Math.max(1, rank));
+  const r = Math.min(def.maxRank ?? MAX_RANK, Math.max(1, rank));
   const rd: RankDef = def.ranks[r - 1];
   return {
     id: def.id,
@@ -69,7 +68,8 @@ export function checkUnlock(
 ): UnlockCheck {
   const current = skillRanks[def.id] ?? 0;
   const nextRank = current + 1;
-  if (current >= MAX_RANK) return { ok: false, reason: 'Already at max rank.', nextRank: current };
+  const maxRank = def.maxRank ?? MAX_RANK;
+  if (current >= maxRank) return { ok: false, reason: 'Already at max rank.', nextRank: current };
   if (abilityPoints < rankCost) return { ok: false, reason: 'Not enough Ability Points.', nextRank };
   if (def.minLevel && level < def.minLevel) return { ok: false, reason: `Requires level ${def.minLevel}.`, nextRank };
   const nameOf = (id: string) => allSkills.find((s) => s.id === id)?.name ?? id;
@@ -77,10 +77,6 @@ export function checkUnlock(
   if (def.requires) {
     const missing = def.requires.find((r) => !satisfied(r));
     if (missing) return { ok: false, reason: `Requires ${nameOf(missing.skillId)} rank ${missing.rank}.`, nextRank };
-  }
-  if (def.requiresAny && !def.requiresAny.some((group) => group.every(satisfied))) {
-    const names = def.requiresAny.map((g) => g.map((r) => `${nameOf(r.skillId)} rank ${r.rank}`).join(' + ')).join(' or ');
-    return { ok: false, reason: `Requires ${names}.`, nextRank };
   }
   return { ok: true, nextRank };
 }

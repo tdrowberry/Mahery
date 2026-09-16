@@ -9,7 +9,7 @@ import { sharedSkillId } from '../engine/skills';
 // Save file format. Bump SAVE_VERSION and extend migrate() when the shape changes.
 // Battle state is never saved.
 
-export const SAVE_VERSION = 2 as const;
+export const SAVE_VERSION = 3 as const;
 export const SAVE_SLOTS = [1, 2, 3] as const;
 export type SlotNumber = (typeof SAVE_SLOTS)[number];
 
@@ -65,7 +65,34 @@ export interface SaveFileV2 {
   };
 }
 
-export type SaveFile = SaveFileV2;
+export interface SaveFileV3 {
+  version: 3;
+  savedAt: string;
+  animalId: AnimalId;
+  mahery: {
+    level: number;
+    xp: number;
+    attributes: Attributes;               // raw allocated stats, before gem/passive bonuses
+    abilityPoints: number;
+    attributePoints: number;
+    marks: number;                        // trade currency, from victories and selling gems
+    skillRanks: Record<string, number>;   // 'bear.basicStrike' -> 1..3, absent = locked
+    actionBar: (string | null)[];         // length ACTION_BAR_SLOTS
+    passives: string[];                   // chosen passive ids, one per reached choice point
+  };
+  story: {
+    chapter: number;
+    stage: number;
+    clearedStages: string[];
+    flags: Record<string, boolean>;
+  };
+  inventory: {
+    items: string[];                    // owned, unequipped gem ids (duplicates allowed)
+    necklace: (string | null)[];        // length NECKLACE_SLOTS, one gem id per slot or empty
+  };
+}
+
+export type SaveFile = SaveFileV3;
 
 export const slotKey = (slot: SlotNumber) => `mahery.save.${slot}`;
 
@@ -93,6 +120,7 @@ export function createNewSave(animalId: AnimalId): SaveFile {
       marks: 0,
       skillRanks: { [basic]: 1 },
       actionBar,
+      passives: [],
     },
     story: { chapter: 1, stage: 1, clearedStages: [], flags: {} },
     inventory: { items: [], necklace: Array(NECKLACE_SLOTS).fill(null) },
@@ -115,13 +143,16 @@ export function migrate(raw: unknown): SaveFile | null {
       s.story.flags ??= {};
       s.story.clearedStages ??= [];
       while (s.mahery.actionBar.length < ACTION_BAR_SLOTS) s.mahery.actionBar.push(null);
-      return {
+      // Carry it forward the rest of the way (v2 -> v3) instead of duplicating that logic here.
+      return migrate({
         ...s,
         version: 2,
         inventory: { items: [], necklace: Array(NECKLACE_SLOTS).fill(null) },
-      };
+      });
     }
     case 2: {
+      // v2 had no passive perks at all - nothing to translate, everyone just starts with none
+      // and can pick them up naturally as they reach the chain's choice points.
       const s = raw as SaveFileV2;
       if (!s.mahery || !s.story || !s.animalId) return null;
       s.inventory ??= { items: [], necklace: Array(NECKLACE_SLOTS).fill(null) };
@@ -129,6 +160,20 @@ export function migrate(raw: unknown): SaveFile | null {
       s.inventory.necklace ??= Array(NECKLACE_SLOTS).fill(null);
       while (s.inventory.necklace.length < NECKLACE_SLOTS) s.inventory.necklace.push(null);
       s.mahery.marks ??= 0;
+      s.story.flags ??= {};
+      s.story.clearedStages ??= [];
+      while (s.mahery.actionBar.length < ACTION_BAR_SLOTS) s.mahery.actionBar.push(null);
+      return { ...s, version: 3, mahery: { ...s.mahery, passives: [] } };
+    }
+    case 3: {
+      const s = raw as SaveFileV3;
+      if (!s.mahery || !s.story || !s.animalId) return null;
+      s.inventory ??= { items: [], necklace: Array(NECKLACE_SLOTS).fill(null) };
+      s.inventory.items ??= [];
+      s.inventory.necklace ??= Array(NECKLACE_SLOTS).fill(null);
+      while (s.inventory.necklace.length < NECKLACE_SLOTS) s.inventory.necklace.push(null);
+      s.mahery.marks ??= 0;
+      s.mahery.passives ??= [];
       s.story.flags ??= {};
       s.story.clearedStages ??= [];
       while (s.mahery.actionBar.length < ACTION_BAR_SLOTS) s.mahery.actionBar.push(null);

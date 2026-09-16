@@ -7,8 +7,8 @@ export const maxSpirit = (a: Attributes) => 20 + a.instinct * 3;
 export const scaledValue = (a: Attributes, scaling: Scaling, multiplier: number) =>
   a[scaling] * multiplier;
 
-/** Crit chance from Speed: 5% base + 0.5% per point. */
-export const critChance = (speed: number) => Math.min(0.5, 0.05 + speed * 0.005);
+/** Crit chance from Speed: 5% base + 0.5% per point, plus any flat bonus (e.g. a passive perk). */
+export const critChance = (speed: number, bonus = 0) => Math.min(0.5, 0.05 + speed * 0.005 + bonus);
 export const CRIT_MULTIPLIER = 1.5;
 
 /** Evasion from Speed: 0.5% per point, capped at 30% including bonuses. */

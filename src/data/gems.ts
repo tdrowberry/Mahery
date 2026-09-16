@@ -25,6 +25,13 @@ export const GEM_KIND_COLOR: Record<GemKind, string> = {
 export const GEM_KIND_STONE: Record<GemKind, string> = {
   vitality: 'Jade', strength: 'Garnet', instinct: 'Amethyst', speed: 'Citrine', guard: 'Onyx',
 };
+// Real gem artwork (cropped from the user's reference sheet, see public/art/gems) shown on the
+// necklace instead of a flat color swatch. Speed maps to the reference's blue opal rather than
+// a yellow citrine - there was no yellow stone in the reference set to match the name.
+export const GEM_KIND_ICON: Record<GemKind, string> = {
+  vitality: '/art/gems/green.png', strength: '/art/gems/red.png', instinct: '/art/gems/purple.png',
+  speed: '/art/gems/blue.png', guard: '/art/gems/black.png',
+};
 export const LEVEL_LABEL = ['Chipped', 'Set', 'Deep', 'Flawless', 'Radiant'];
 const LEVEL_SELL_VALUE = [6, 14, 28, 50, 85];
 

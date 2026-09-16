@@ -53,13 +53,6 @@ export function HubScreen() {
               );
             })}
           </div>
-          <div className="stage" style={{ marginTop: 10 }} data-testid="stage-roaming">
-            <div>
-              <div className="st-name">Roam off the road</div>
-              <div className="small muted">A random creature, for Marks and a little XP. No story, no risk to your progress.</div>
-            </div>
-            <button className="btn" onClick={startRoamingEncounter} data-testid="hunt-btn">Hunt</button>
-          </div>
           {chapterDone && (
             <div className="chapter-done">
               {ending ? (
@@ -102,6 +95,21 @@ export function HubScreen() {
             <span className="marks-num">{m.marks}</span>
           </div>
           <div className="small muted" style={{ marginTop: 10 }}>{animal.personality}</div>
+        </div>
+
+        <div className="steel ab-panel hunt-panel">
+          <div className="ab-title">The Hunt</div>
+          <div className="muted small" style={{ marginBottom: 8 }}>
+            Off the road, not part of the story: a random creature for Marks and a little XP.
+            Repeatable any time, no risk to your progress.
+          </div>
+          <div className="stage" data-testid="stage-roaming">
+            <div>
+              <div className="st-name">Roam off the road</div>
+              <div className="small muted">Fight whatever crosses your path.</div>
+            </div>
+            <button className="btn" onClick={startRoamingEncounter} data-testid="hunt-btn">Hunt</button>
+          </div>
         </div>
       </div>
       <MenuStrip current="hub" />

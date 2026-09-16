@@ -83,7 +83,9 @@ export type SpecialKey =
 export type Effect =
   | {
       kind: 'damage'; scaling: Scaling; multiplier: number; ignoreGuardPct?: number;
-      /** extra multiplier on top when the target currently carries this status - rewards setting it up first */
+      /** rewards setting the target up first: `multiplier` is a bonus fraction added per stack
+       * of `status` the target carries (Weaken/Bleed stack up to 3 - see STACKABLE_CAP in
+       * engine/combat.ts); a status that doesn't stack just counts as 1 when present. */
       bonusVsStatus?: { status: StatusId; multiplier: number };
     }
   | { kind: 'heal'; scaling: Scaling; multiplier: number }
@@ -119,10 +121,13 @@ export interface SkillDef {
   kind: 'shared' | 'unique' | 'companion';
   sharedKind?: SharedKind;
   target: TargetRule;
-  ranks: [RankDef, RankDef, RankDef];
+  /** shared skills are always exactly 3 (MAX_RANK); a unique skill can go further - see maxRank */
+  ranks: RankDef[];
+  /** highest rank this skill can reach; defaults to progression.ts's MAX_RANK (3) when absent.
+   * Every animal's signature skill sets this to 5 via the `unique()` helper in animals.ts - the
+   * capstone keeps paying off longer than the shared skills around it. */
+  maxRank?: number;
   requires?: { skillId: string; rank: number }[];
-  /** alternative prerequisite groups: any one group satisfied is enough */
-  requiresAny?: { skillId: string; rank: number }[][];
   minLevel?: number;
 }
 
@@ -147,7 +152,6 @@ export interface SharedSkillTemplate {
   target: TargetRule;
   ranks: [RankDef, RankDef, RankDef];
   requires?: { skillId: string; rank: number }[];
-  requiresAny?: { skillId: string; rank: number }[][];
   minLevel?: number;
 }
 
@@ -206,6 +210,9 @@ export interface EnemyDef {
   isBoss: boolean;
   moves: EnemyMove[];
   loot?: LootDrop[];
+  /** a gem id guaranteed on the first clear of this fight, on top of the chance-based `loot`
+   * roll - bosses hand you something for beating them specifically, not just a lottery ticket. */
+  guaranteedLoot?: string;
   marksReward?: number; // trade marks dropped alongside XP
   /** Renders as a bigger, red-eyed version of the player's own bonded hybrid form instead of
    * this def's `art` - for kin/clan enemies (the old camp, the old chief) meant to visually

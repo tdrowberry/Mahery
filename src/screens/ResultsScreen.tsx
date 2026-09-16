@@ -1,6 +1,6 @@
 import { useGame } from '../state/gameStore';
 import { getGem } from '../data/gems';
-import { ABILITY_POINTS_PER_LEVEL, ATTRIBUTE_POINTS_PER_LEVEL, xpToNextLevel } from '../data/progression';
+import { xpToNextLevel } from '../data/progression';
 
 export function ResultsScreen() {
   const results = useGame((s) => s.results);
@@ -17,7 +17,7 @@ export function ResultsScreen() {
           <div className="panel" style={{ borderColor: 'var(--accent)', margin: '10px 0' }}>
             <div style={{ fontSize: 20, color: 'var(--accent-2)' }}>Level up! Mahery is now level {results.newLevel}.</div>
             <div className="muted small" style={{ marginTop: 6 }}>
-              +{ABILITY_POINTS_PER_LEVEL * results.levelsGained} Ability Points, +{ATTRIBUTE_POINTS_PER_LEVEL * results.levelsGained} Attribute Points. Spend them on the Skills screen.
+              +{results.abilityPointsGained} Ability Points, +{results.attributePointsGained} Attribute Points. Spend them on the Skills screen.
             </div>
           </div>
         ) : (

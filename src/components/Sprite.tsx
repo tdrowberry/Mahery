@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useState, type CSSProperties, type ReactElement } from 'react';
 import type { AnimStyle, ArtId } from '../data/types';
 import type { Unit } from '../engine/combat';
-import { GEM_KIND_COLOR, getGem } from '../data/gems';
+import { GEM_KIND_COLOR, GEM_KIND_ICON, getGem } from '../data/gems';
 
 // Illustrated vector art, drawn as inline SVG in a 120x160 box. Every figure is filled and
 // gradient-shaded (not just outlined) with a bold ink rim, textured fur/scale linework, and
@@ -773,14 +773,38 @@ export function Sprite({ art, color, size = 160, dimmed, flip, className = '', t
       </div>
       {necklace && necklace.some((id) => id) && (
         // Sits outside .sprite-flip so it's never mirrored - necklace is Mahery-only, and Mahery
-        // is never flip'd, but this keeps gem order stable regardless.
+        // is never flip'd, but this keeps gem order stable regardless. A thin gold choker band
+        // (generic, not per-character - the source art is one 3/4 studio angle that can't be
+        // fitted to 11 different necks) sits behind the row of real gem icons, so every hybrid
+        // form reads as "wearing a necklace" rather than just floating colored stones.
         <div className="necklace-gems">
-          {necklace.map((id, i) => {
-            if (!id) return null;
-            const gem = getGem(id);
-            const gemColor = GEM_KIND_COLOR[gem.kind];
-            return <span key={i} className="gem-dot" style={{ background: gemColor, boxShadow: `0 0 5px 1px ${gemColor}` }} title={gem.name} />;
-          })}
+          <svg className="necklace-band" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id={`band-${uid}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#f6e2a0" />
+                <stop offset="50%" stopColor="#c9973f" />
+                <stop offset="100%" stopColor="#6e4f18" />
+              </linearGradient>
+            </defs>
+            <path d="M3,9 Q50,15 97,9 L97,15 Q50,21 3,15 Z" fill={`url(#band-${uid})`} stroke="#4a3610" strokeWidth="1" />
+          </svg>
+          <div className="necklace-gem-row">
+            {necklace.map((id, i) => {
+              if (!id) return null;
+              const gem = getGem(id);
+              const gemColor = GEM_KIND_COLOR[gem.kind];
+              return (
+                <img
+                  key={i}
+                  src={GEM_KIND_ICON[gem.kind]}
+                  alt=""
+                  className="gem-dot"
+                  style={{ filter: `drop-shadow(0 0 3px ${gemColor}) drop-shadow(0 1px 1px rgba(0,0,0,0.6))` }}
+                  title={gem.name}
+                />
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

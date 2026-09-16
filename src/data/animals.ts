@@ -4,13 +4,20 @@ import type { AnimalDef, AnimalId, ArtId, RankDef, SkillDef, VoiceLines } from '
 // names and flavor for them, plus its own signature skill, stat mods, and voice.
 // Bear's voice is the fullest; the others are shorter first drafts in their own register.
 
-type UniqueSpec = Omit<SkillDef, 'kind' | 'id'> & { ranks: [RankDef, RankDef, RankDef] };
+// 5 ranks, not the shared skills' 3 - the signature skill is the one thing worth still growing
+// into after the whole chain is unlocked (see maxRank on SkillDef).
+type UniqueSpec = Omit<SkillDef, 'kind' | 'id' | 'ranks' | 'maxRank'> & {
+  ranks: [RankDef, RankDef, RankDef, RankDef, RankDef];
+};
 
+// The signature skill sits at the very end of the shared-skill chain (see sharedSkills.ts) -
+// the payoff for having put at least one point into every other ability first.
 const unique = (animalId: AnimalId, spec: UniqueSpec): SkillDef => ({
   ...spec,
   id: `${animalId}.unique`,
   kind: 'unique',
-  requires: spec.requires ?? [{ skillId: `${animalId}.guardStance`, rank: 1 }],
+  maxRank: 5,
+  requires: spec.requires ?? [{ skillId: `${animalId}.rally`, rank: 1 }],
   minLevel: spec.minLevel ?? 2,
 });
 
@@ -48,11 +55,12 @@ const bear: AnimalDef = {
     icon: 'resolve',
     anim: 'cast',
     target: 'self',
-    requires: [{ skillId: 'bear.guardStance', rank: 2 }],
     ranks: [
       { spiritCost: 12, cooldown: 5, summary: 'For 2 turns: take 40% less damage and reflect 25% of it.', effects: [{ kind: 'status', status: 'resolve', duration: 2, magnitude: 0.4, extra: 0.25, target: 'self' }] },
       { spiritCost: 12, cooldown: 5, summary: 'For 2 turns: take 50% less damage and reflect 35% of it.', effects: [{ kind: 'status', status: 'resolve', duration: 2, magnitude: 0.5, extra: 0.35, target: 'self' }] },
       { spiritCost: 12, cooldown: 5, summary: 'For 2 turns: take 60% less damage and reflect 50% of it.', effects: [{ kind: 'status', status: 'resolve', duration: 2, magnitude: 0.6, extra: 0.5, target: 'self' }] },
+      { spiritCost: 12, cooldown: 5, summary: 'For 2 turns: take 68% less damage and reflect 60% of it.', effects: [{ kind: 'status', status: 'resolve', duration: 2, magnitude: 0.68, extra: 0.6, target: 'self' }] },
+      { spiritCost: 12, cooldown: 5, summary: 'For 2 turns: take 75% less damage and reflect 70% of it.', effects: [{ kind: 'status', status: 'resolve', duration: 2, magnitude: 0.75, extra: 0.7, target: 'self' }] },
     ],
   }),
   voice: voice({
@@ -117,6 +125,8 @@ const moose: AnimalDef = {
       { spiritCost: 10, cooldown: 4, summary: 'Deal 140% Strength, 50% of that to the enemy behind, 25% chance to stun.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 1.4 }, { kind: 'special', key: 'splashBehind', params: { multiplier: 0.7 } }, { kind: 'special', key: 'stunChance', params: { chance: 0.25, duration: 1 } }] },
       { spiritCost: 10, cooldown: 4, summary: 'Deal 160% Strength, 50% of that to the enemy behind, 35% chance to stun.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 1.6 }, { kind: 'special', key: 'splashBehind', params: { multiplier: 0.8 } }, { kind: 'special', key: 'stunChance', params: { chance: 0.35, duration: 1 } }] },
       { spiritCost: 10, cooldown: 4, summary: 'Deal 180% Strength, 50% of that to the enemy behind, 45% chance to stun.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 1.8 }, { kind: 'special', key: 'splashBehind', params: { multiplier: 0.9 } }, { kind: 'special', key: 'stunChance', params: { chance: 0.45, duration: 1 } }] },
+      { spiritCost: 10, cooldown: 4, summary: 'Deal 195% Strength, 50% of that to the enemy behind, 52% chance to stun.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 1.95 }, { kind: 'special', key: 'splashBehind', params: { multiplier: 0.95 } }, { kind: 'special', key: 'stunChance', params: { chance: 0.52, duration: 1 } }] },
+      { spiritCost: 10, cooldown: 4, summary: 'Deal 210% Strength, 50% of that to the enemy behind, 60% chance to stun.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 2.1 }, { kind: 'special', key: 'splashBehind', params: { multiplier: 1.0 } }, { kind: 'special', key: 'stunChance', params: { chance: 0.6, duration: 1 } }] },
     ],
   }),
   voice: voice({
@@ -165,6 +175,8 @@ const boar: AnimalDef = {
       { spiritCost: 8, cooldown: 3, summary: 'Deal 100% Strength, plus up to 150% more the lower your Health.', effects: [{ kind: 'special', key: 'rampage', params: { base: 1.0, bonus: 1.5 } }] },
       { spiritCost: 8, cooldown: 3, summary: 'Deal 110% Strength, plus up to 200% more the lower your Health.', effects: [{ kind: 'special', key: 'rampage', params: { base: 1.1, bonus: 2.0 } }] },
       { spiritCost: 8, cooldown: 3, summary: 'Deal 120% Strength, plus up to 250% more the lower your Health.', effects: [{ kind: 'special', key: 'rampage', params: { base: 1.2, bonus: 2.5 } }] },
+      { spiritCost: 8, cooldown: 3, summary: 'Deal 130% Strength, plus up to 300% more the lower your Health.', effects: [{ kind: 'special', key: 'rampage', params: { base: 1.3, bonus: 3.0 } }] },
+      { spiritCost: 8, cooldown: 3, summary: 'Deal 140% Strength, plus up to 350% more the lower your Health.', effects: [{ kind: 'special', key: 'rampage', params: { base: 1.4, bonus: 3.5 } }] },
     ],
   }),
   voice: voice({
@@ -210,9 +222,11 @@ const wolf: AnimalDef = {
     anim: 'strike',
     target: 'enemy',
     ranks: [
-      { spiritCost: 8, cooldown: 3, summary: 'Deal 100% Strength, +35% per negative effect on the target.', effects: [{ kind: 'special', key: 'packInstinct', params: { base: 1.0, perDebuff: 0.35 } }] },
-      { spiritCost: 8, cooldown: 3, summary: 'Deal 110% Strength, +50% per negative effect on the target.', effects: [{ kind: 'special', key: 'packInstinct', params: { base: 1.1, perDebuff: 0.5 } }] },
-      { spiritCost: 8, cooldown: 3, summary: 'Deal 120% Strength, +65% per negative effect on the target.', effects: [{ kind: 'special', key: 'packInstinct', params: { base: 1.2, perDebuff: 0.65 } }] },
+      { spiritCost: 8, cooldown: 3, summary: 'Deal 100% Strength, +35% per negative effect (or stack of one) on the target.', effects: [{ kind: 'special', key: 'packInstinct', params: { base: 1.0, perDebuff: 0.35 } }] },
+      { spiritCost: 8, cooldown: 3, summary: 'Deal 110% Strength, +50% per negative effect (or stack of one) on the target.', effects: [{ kind: 'special', key: 'packInstinct', params: { base: 1.1, perDebuff: 0.5 } }] },
+      { spiritCost: 8, cooldown: 3, summary: 'Deal 120% Strength, +65% per negative effect (or stack of one) on the target.', effects: [{ kind: 'special', key: 'packInstinct', params: { base: 1.2, perDebuff: 0.65 } }] },
+      { spiritCost: 8, cooldown: 3, summary: 'Deal 130% Strength, +80% per negative effect (or stack of one) on the target.', effects: [{ kind: 'special', key: 'packInstinct', params: { base: 1.3, perDebuff: 0.8 } }] },
+      { spiritCost: 8, cooldown: 3, summary: 'Deal 140% Strength, +95% per negative effect (or stack of one) on the target.', effects: [{ kind: 'special', key: 'packInstinct', params: { base: 1.4, perDebuff: 0.95 } }] },
     ],
   }),
   voice: voice({
@@ -261,6 +275,8 @@ const elk: AnimalDef = {
       { spiritCost: 9, cooldown: 4, summary: 'Mahery and the companion gain +20% Strength and Speed for 3 turns. Solo: +20% Instinct and a 200% Vitality shield.', effects: [{ kind: 'special', key: 'herdBlessing', params: { magnitude: 0.2, duration: 3, shieldMult: 2 } }] },
       { spiritCost: 9, cooldown: 4, summary: 'Mahery and the companion gain +30% Strength and Speed for 3 turns. Solo: +30% Instinct and a 300% Vitality shield.', effects: [{ kind: 'special', key: 'herdBlessing', params: { magnitude: 0.3, duration: 3, shieldMult: 3 } }] },
       { spiritCost: 9, cooldown: 4, summary: 'Mahery and the companion gain +40% Strength and Speed for 3 turns. Solo: +40% Instinct and a 400% Vitality shield.', effects: [{ kind: 'special', key: 'herdBlessing', params: { magnitude: 0.4, duration: 3, shieldMult: 4 } }] },
+      { spiritCost: 9, cooldown: 4, summary: 'Mahery and the companion gain +50% Strength and Speed for 3 turns. Solo: +50% Instinct and a 500% Vitality shield.', effects: [{ kind: 'special', key: 'herdBlessing', params: { magnitude: 0.5, duration: 3, shieldMult: 5 } }] },
+      { spiritCost: 9, cooldown: 4, summary: 'Mahery and the companion gain +60% Strength and Speed for 3 turns. Solo: +60% Instinct and a 600% Vitality shield.', effects: [{ kind: 'special', key: 'herdBlessing', params: { magnitude: 0.6, duration: 3, shieldMult: 6 } }] },
     ],
   }),
   voice: voice({
@@ -309,6 +325,8 @@ const platypus: AnimalDef = {
       { spiritCost: 8, cooldown: 3, summary: 'Deal 60% Strength, poison for 80% Instinct over 4 turns, and slow the target for 2 turns.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 0.6 }, { kind: 'status', status: 'poison', duration: 4, magnitude: 0.8, scaling: 'instinct', target: 'target' }, { kind: 'status', status: 'speedDown', duration: 2, magnitude: 0.25, target: 'target' }] },
       { spiritCost: 8, cooldown: 3, summary: 'Deal 60% Strength, poison for 100% Instinct over 4 turns, and slow the target for 2 turns.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 0.6 }, { kind: 'status', status: 'poison', duration: 4, magnitude: 1.0, scaling: 'instinct', target: 'target' }, { kind: 'status', status: 'speedDown', duration: 2, magnitude: 0.3, target: 'target' }] },
       { spiritCost: 8, cooldown: 3, summary: 'Deal 60% Strength, poison for 120% Instinct over 4 turns, and slow the target for 3 turns.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 0.6 }, { kind: 'status', status: 'poison', duration: 4, magnitude: 1.2, scaling: 'instinct', target: 'target' }, { kind: 'status', status: 'speedDown', duration: 3, magnitude: 0.35, target: 'target' }] },
+      { spiritCost: 8, cooldown: 3, summary: 'Deal 65% Strength, poison for 140% Instinct over 4 turns, and slow the target for 3 turns.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 0.65 }, { kind: 'status', status: 'poison', duration: 4, magnitude: 1.4, scaling: 'instinct', target: 'target' }, { kind: 'status', status: 'speedDown', duration: 3, magnitude: 0.4, target: 'target' }] },
+      { spiritCost: 8, cooldown: 3, summary: 'Deal 70% Strength, poison for 160% Instinct over 4 turns, and slow the target for 4 turns.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 0.7 }, { kind: 'status', status: 'poison', duration: 4, magnitude: 1.6, scaling: 'instinct', target: 'target' }, { kind: 'status', status: 'speedDown', duration: 4, magnitude: 0.45, target: 'target' }] },
     ],
   }),
   voice: voice({
@@ -357,6 +375,8 @@ const mountainLion: AnimalDef = {
       { spiritCost: 9, cooldown: 4, summary: 'Deal 160% Strength. +50% in round 1; +100% against targets under 30% Health.', effects: [{ kind: 'special', key: 'ambush', params: { multiplier: 1.6, openingBonus: 0.5, executeThreshold: 0.3, executeBonus: 1.0 } }] },
       { spiritCost: 9, cooldown: 4, summary: 'Deal 190% Strength. +50% in round 1; +100% against targets under 35% Health.', effects: [{ kind: 'special', key: 'ambush', params: { multiplier: 1.9, openingBonus: 0.5, executeThreshold: 0.35, executeBonus: 1.0 } }] },
       { spiritCost: 9, cooldown: 4, summary: 'Deal 220% Strength. +60% in round 1; +120% against targets under 40% Health.', effects: [{ kind: 'special', key: 'ambush', params: { multiplier: 2.2, openingBonus: 0.6, executeThreshold: 0.4, executeBonus: 1.2 } }] },
+      { spiritCost: 9, cooldown: 4, summary: 'Deal 245% Strength. +65% in round 1; +135% against targets under 42% Health.', effects: [{ kind: 'special', key: 'ambush', params: { multiplier: 2.45, openingBonus: 0.65, executeThreshold: 0.42, executeBonus: 1.35 } }] },
+      { spiritCost: 9, cooldown: 4, summary: 'Deal 270% Strength. +70% in round 1; +150% against targets under 45% Health.', effects: [{ kind: 'special', key: 'ambush', params: { multiplier: 2.7, openingBonus: 0.7, executeThreshold: 0.45, executeBonus: 1.5 } }] },
     ],
   }),
   voice: voice({
@@ -405,6 +425,8 @@ const bobcat: AnimalDef = {
       { spiritCost: 14, cooldown: 4, summary: 'Deal 120% Strength as a guaranteed critical and bleed for 30% Strength over 3 turns.', effects: [{ kind: 'special', key: 'guaranteedCrit', params: { multiplier: 1.2 } }, { kind: 'status', status: 'bleed', duration: 3, magnitude: 0.3, scaling: 'strength', target: 'target' }] },
       { spiritCost: 14, cooldown: 4, summary: 'Deal 140% Strength as a guaranteed critical and bleed for 40% Strength over 3 turns.', effects: [{ kind: 'special', key: 'guaranteedCrit', params: { multiplier: 1.4 } }, { kind: 'status', status: 'bleed', duration: 3, magnitude: 0.4, scaling: 'strength', target: 'target' }] },
       { spiritCost: 14, cooldown: 4, summary: 'Deal 160% Strength as a guaranteed critical and bleed for 50% Strength over 3 turns.', effects: [{ kind: 'special', key: 'guaranteedCrit', params: { multiplier: 1.6 } }, { kind: 'status', status: 'bleed', duration: 3, magnitude: 0.5, scaling: 'strength', target: 'target' }] },
+      { spiritCost: 14, cooldown: 4, summary: 'Deal 175% Strength as a guaranteed critical and bleed for 58% Strength over 3 turns.', effects: [{ kind: 'special', key: 'guaranteedCrit', params: { multiplier: 1.75 } }, { kind: 'status', status: 'bleed', duration: 3, magnitude: 0.58, scaling: 'strength', target: 'target' }] },
+      { spiritCost: 14, cooldown: 4, summary: 'Deal 190% Strength as a guaranteed critical and bleed for 65% Strength over 3 turns.', effects: [{ kind: 'special', key: 'guaranteedCrit', params: { multiplier: 1.9 } }, { kind: 'status', status: 'bleed', duration: 3, magnitude: 0.65, scaling: 'strength', target: 'target' }] },
     ],
   }),
   voice: voice({
@@ -453,6 +475,8 @@ const buffalo: AnimalDef = {
       { spiritCost: 12, cooldown: 4, summary: 'Deal 90% Strength to all enemies, clear your negative effects, heal 100% Instinct.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 0.9 }, { kind: 'cleanse' }, { kind: 'heal', scaling: 'instinct', multiplier: 1.0 }] },
       { spiritCost: 12, cooldown: 4, summary: 'Deal 110% Strength to all enemies, clear your negative effects, heal 150% Instinct.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 1.1 }, { kind: 'cleanse' }, { kind: 'heal', scaling: 'instinct', multiplier: 1.5 }] },
       { spiritCost: 12, cooldown: 4, summary: 'Deal 130% Strength to all enemies, clear your negative effects, heal 200% Instinct.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 1.3 }, { kind: 'cleanse' }, { kind: 'heal', scaling: 'instinct', multiplier: 2.0 }] },
+      { spiritCost: 12, cooldown: 4, summary: 'Deal 145% Strength to all enemies, clear your negative effects, heal 230% Instinct.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 1.45 }, { kind: 'cleanse' }, { kind: 'heal', scaling: 'instinct', multiplier: 2.3 }] },
+      { spiritCost: 12, cooldown: 4, summary: 'Deal 160% Strength to all enemies, clear your negative effects, heal 260% Instinct.', effects: [{ kind: 'damage', scaling: 'strength', multiplier: 1.6 }, { kind: 'cleanse' }, { kind: 'heal', scaling: 'instinct', multiplier: 2.6 }] },
     ],
   }),
   voice: voice({
@@ -501,6 +525,8 @@ const eagle: AnimalDef = {
       { spiritCost: 10, cooldown: 4, summary: 'Leap up (hard to hit). Next turn: 220% Strength that ignores half of shields.', effects: [{ kind: 'special', key: 'skyfall', params: { multiplier: 2.2, ignoreGuardPct: 0.5 } }] },
       { spiritCost: 10, cooldown: 4, summary: 'Leap up (hard to hit). Next turn: 260% Strength that ignores half of shields.', effects: [{ kind: 'special', key: 'skyfall', params: { multiplier: 2.6, ignoreGuardPct: 0.5 } }] },
       { spiritCost: 10, cooldown: 4, summary: 'Leap up (hard to hit). Next turn: 300% Strength that ignores shields.', effects: [{ kind: 'special', key: 'skyfall', params: { multiplier: 3.0, ignoreGuardPct: 1.0 } }] },
+      { spiritCost: 10, cooldown: 4, summary: 'Leap up (hard to hit). Next turn: 330% Strength that ignores shields.', effects: [{ kind: 'special', key: 'skyfall', params: { multiplier: 3.3, ignoreGuardPct: 1.0 } }] },
+      { spiritCost: 10, cooldown: 4, summary: 'Leap up (hard to hit). Next turn: 360% Strength that ignores shields.', effects: [{ kind: 'special', key: 'skyfall', params: { multiplier: 3.6, ignoreGuardPct: 1.0 } }] },
     ],
   }),
   voice: voice({
@@ -549,6 +575,8 @@ const falcon: AnimalDef = {
       { spiritCost: 10, cooldown: 4, summary: 'Take an extra action this turn.', effects: [{ kind: 'special', key: 'extraAction' }] },
       { spiritCost: 8, cooldown: 4, summary: 'Take an extra action this turn and gain +20% Speed for 2 turns.', effects: [{ kind: 'special', key: 'extraAction' }, { kind: 'status', status: 'speedUp', duration: 2, magnitude: 0.2, target: 'self' }] },
       { spiritCost: 6, cooldown: 3, summary: 'Take an extra action this turn and gain +30% Speed for 2 turns.', effects: [{ kind: 'special', key: 'extraAction' }, { kind: 'status', status: 'speedUp', duration: 2, magnitude: 0.3, target: 'self' }] },
+      { spiritCost: 5, cooldown: 3, summary: 'Take an extra action this turn and gain +35% Speed for 3 turns.', effects: [{ kind: 'special', key: 'extraAction' }, { kind: 'status', status: 'speedUp', duration: 3, magnitude: 0.35, target: 'self' }] },
+      { spiritCost: 4, cooldown: 3, summary: 'Take an extra action this turn and gain +40% Speed for 3 turns.', effects: [{ kind: 'special', key: 'extraAction' }, { kind: 'status', status: 'speedUp', duration: 3, magnitude: 0.4, target: 'self' }] },
     ],
   }),
   voice: voice({

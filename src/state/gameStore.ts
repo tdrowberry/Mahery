@@ -3,10 +3,13 @@ import type { AnimalId, Attributes, DialogueLine, EncounterDef, Stance } from '.
 import { getAnimal } from '../data/animals';
 import { createRoamingEncounter, getChapter, getEncounter } from '../data/encounters';
 import { getEnemy } from '../data/enemies';
-import { getGem, necklaceBonuses, shopPrice } from '../data/gems';
+import { getGem, MAX_GUARD_REDUCTION, necklaceBonuses, shopPrice } from '../data/gems';
+import { pendingChoicePoints, passiveBonuses } from '../data/passives';
 import { getScene, PROLOGUE_WAKE } from '../data/story';
-import { gainXp, MAX_RANK, RANK_COST } from '../data/progression';
-import { checkUnlock, findSkill, getAnimalSkills } from '../engine/skills';
+import {
+  ACTION_BAR_SLOTS, BASE_ATTRIBUTES, gainXp, MAX_RANK, RANK_COST, respecCost,
+} from '../data/progression';
+import { checkUnlock, findSkill, getAnimalSkills, sharedSkillId } from '../engine/skills';
 import {
   advance, createBattle, playerSelectUnit, playerUseSkill, playerWait,
   setAllyStance as setAllyStanceEngine, type BattleState,
@@ -33,6 +36,8 @@ export interface BattleResults {
   xp: number;
   levelsGained: number;
   newLevel: number;
+  abilityPointsGained: number;
+  attributePointsGained: number;
   firstClear: boolean;
   marksGained: number;
   droppedItems: string[];
@@ -68,6 +73,11 @@ interface GameState {
   unlockSkill: (skillId: string) => string | null;
   spendAttribute: (attr: keyof Attributes) => void;
   setActionBarSlot: (slotIndex: number, skillId: string | null) => void;
+  /** Refunds every spent Ability and Attribute Point (for a Marks fee) and clears the action
+   * bar back to just the free Basic Strike, so the whole build can be redone from scratch. */
+  resetSkillTree: () => string | null;
+  /** locks in one of a reached choice point's two passive perks, permanently (until a respec) */
+  choosePassive: (choiceId: string, passiveId: string) => string | null;
 
   // necklace gems
   /** equips into the first empty necklace slot; no-op if the necklace is already full */
@@ -110,9 +120,17 @@ export function effectiveMaheryAttributes(save: SaveFile): Attributes {
   };
 }
 
-/** Fraction (0..1) of incoming damage the necklace's guard gems shave off, capped in gems.ts. */
+/** Fraction (0..1) of incoming damage reduced by necklace guard gems plus a Thick Scales-style
+ * passive, if chosen - both feed the same pool and share the one cap. */
 export function effectiveDamageReductionPct(save: SaveFile): number {
-  return necklaceBonuses(save.inventory.necklace).guardPct;
+  const necklacePct = necklaceBonuses(save.inventory.necklace).guardPct;
+  const passivePct = passiveBonuses(save.mahery.passives).damageReductionPct;
+  return Math.min(MAX_GUARD_REDUCTION, necklacePct + passivePct);
+}
+
+/** Every passive perk's bonuses, summed - see src/data/passives.ts. */
+export function effectivePassiveBonuses(save: SaveFile) {
+  return passiveBonuses(save.mahery.passives);
 }
 
 export const useGame = create<GameState>((set, get) => ({
@@ -218,6 +236,58 @@ export const useGame = create<GameState>((set, get) => ({
       },
     };
     set({ save: persist(get, next) });
+  },
+
+  resetSkillTree: () => {
+    const { save } = get();
+    if (!save) return 'No save loaded.';
+    const cost = respecCost(save.mahery.level);
+    if (save.mahery.marks < cost) return `Not enough Marks (needs ${cost}).`;
+
+    const animal = getAnimal(save.animalId);
+    const baseAttributes: Attributes = {
+      vitality: BASE_ATTRIBUTES.vitality + animal.baseStatMods.vitality,
+      strength: BASE_ATTRIBUTES.strength + animal.baseStatMods.strength,
+      instinct: BASE_ATTRIBUTES.instinct + animal.baseStatMods.instinct,
+      speed: BASE_ATTRIBUTES.speed + animal.baseStatMods.speed,
+    };
+    const basic = sharedSkillId(save.animalId, 'basicStrike');
+    // Every rank ever bought cost exactly RANK_COST, except Basic Strike's first rank, which
+    // is free from character creation - refund everything else.
+    const ranksSpent = Object.values(save.mahery.skillRanks).reduce((sum, r) => sum + r, 0) - 1;
+    const attrSpent = (Object.keys(baseAttributes) as (keyof Attributes)[])
+      .reduce((sum, k) => sum + (save.mahery.attributes[k] - baseAttributes[k]), 0);
+
+    const next: SaveFile = {
+      ...save,
+      mahery: {
+        ...save.mahery,
+        marks: save.mahery.marks - cost,
+        abilityPoints: save.mahery.abilityPoints + Math.max(0, ranksSpent) * RANK_COST,
+        attributePoints: save.mahery.attributePoints + Math.max(0, attrSpent),
+        attributes: baseAttributes,
+        skillRanks: { [basic]: 1 },
+        actionBar: [basic, ...Array(ACTION_BAR_SLOTS - 1).fill(null)],
+        passives: [],
+      },
+    };
+    set({ save: persist(get, next) });
+    return null;
+  },
+
+  choosePassive: (choiceId, passiveId) => {
+    const { save } = get();
+    if (!save) return 'No save loaded.';
+    const point = pendingChoicePoints(save.animalId, save.mahery.skillRanks, save.mahery.passives)
+      .find((p) => p.id === choiceId);
+    if (!point) return 'That choice is not available.';
+    if (!point.options.some((o) => o.id === passiveId)) return 'Not one of the options for this choice.';
+    const next: SaveFile = {
+      ...save,
+      mahery: { ...save.mahery, passives: [...save.mahery.passives, passiveId] },
+    };
+    set({ save: persist(get, next) });
+    return null;
   },
 
   setActionBarSlot: (slotIndex, skillId) => {
@@ -363,7 +433,9 @@ export const useGame = create<GameState>((set, get) => ({
     const enc = resolveEncounter(get().roamingEncounter, battle.encounterId);
 
     // Loot and marks roll fresh on every clear, so replaying a stage (or another roaming
-    // fight) stays worth doing.
+    // fight) stays worth doing. Guaranteed boss loot is the one exception - it's a one-time
+    // "you beat this fight specifically" reward, not something to hand out on every replay.
+    const firstClear = !enc.isRoaming && !save.story.clearedStages.includes(enc.id);
     let marksGained = 0;
     const droppedItems: string[] = [];
     for (const enemyId of enc.enemyIds) {
@@ -372,6 +444,7 @@ export const useGame = create<GameState>((set, get) => ({
       for (const drop of def.loot ?? []) {
         if (Math.random() < drop.chance) droppedItems.push(drop.itemId);
       }
+      if (enc.isBoss && firstClear && def.guaranteedLoot) droppedItems.push(def.guaranteedLoot);
     }
 
     if (enc.isRoaming) {
@@ -391,6 +464,8 @@ export const useGame = create<GameState>((set, get) => ({
         save: persist(get, next),
         results: {
           encounterId: enc.id, encounterName: enc.name, xp: enc.xpReward, levelsGained, newLevel: lv.level,
+          abilityPointsGained: lv.abilityPoints - save.mahery.abilityPoints,
+          attributePointsGained: lv.attributePoints - save.mahery.attributePoints,
           firstClear: false, marksGained, droppedItems, chapterAdvanced: false,
         },
         battle: null,
@@ -399,7 +474,6 @@ export const useGame = create<GameState>((set, get) => ({
       return;
     }
 
-    const firstClear = !save.story.clearedStages.includes(enc.id);
     const { state: lv, levelsGained } = gainXp(
       { level: save.mahery.level, xp: save.mahery.xp, abilityPoints: save.mahery.abilityPoints, attributePoints: save.mahery.attributePoints },
       enc.xpReward,
@@ -424,7 +498,12 @@ export const useGame = create<GameState>((set, get) => ({
     };
     set({
       save: persist(get, next),
-      results: { encounterId: enc.id, encounterName: enc.name, xp: enc.xpReward, levelsGained, newLevel: lv.level, firstClear, marksGained, droppedItems, chapterAdvanced },
+      results: {
+        encounterId: enc.id, encounterName: enc.name, xp: enc.xpReward, levelsGained, newLevel: lv.level,
+        abilityPointsGained: lv.abilityPoints - save.mahery.abilityPoints,
+        attributePointsGained: lv.attributePoints - save.mahery.attributePoints,
+        firstClear, marksGained, droppedItems, chapterAdvanced,
+      },
       battle: null,
       screen: 'results',
     });
@@ -482,6 +561,7 @@ function beginBattle(
   if (!save) return;
   const enc = resolveEncounter(get().roamingEncounter, encounterId);
   const animal = getAnimal(save.animalId);
+  const passive = effectivePassiveBonuses(save);
   const battle = createBattle({
     encounterId,
     animal,
@@ -490,6 +570,11 @@ function beginBattle(
       skillRanks: save.mahery.skillRanks,
       actionBar: save.mahery.actionBar,
       damageReductionPct: effectiveDamageReductionPct(save),
+      maxHealthPct: passive.maxHealthPct,
+      spiritCostReduction: passive.spiritCostReduction,
+      critChanceBonus: passive.critChanceBonus,
+      evasionBonus: passive.evasionBonus,
+      spiritRegenBonus: passive.spiritRegenBonus,
     },
     enemies: enc.enemyIds.map(getEnemy),
     seed: Date.now() % 2147483647,

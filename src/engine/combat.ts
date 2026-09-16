@@ -29,6 +29,9 @@ export interface StatusInstance {
   sourceId: UnitId;
   /** applied during the owner's own side's turn: skip the first end-of-turn decrement */
   fresh: boolean;
+  /** for stackable debuffs (Weaken, Bleed): how many applications are folded into `magnitude`
+   * right now, capped - see STACKABLE_CAP in addStatus. Absent/1 for everything else. */
+  stacks?: number;
 }
 
 /** Eagle's Skyfall Dive: a strike waiting for the caster's next turn. */
@@ -74,8 +77,13 @@ export interface Unit {
   maxSpirit: number;
   spirit: number;
   evasionBonus: number;
-  /** passive fraction (0..1) of incoming damage reduced, from Mahery's equipped guard gems */
+  /** passive fraction (0..1) of incoming damage reduced, from Mahery's equipped guard gems
+   * and/or a chosen passive perk */
   damageReductionPct?: number;
+  /** flat bonus (0..1) added to crit chance, from a chosen passive perk */
+  critChanceBonus?: number;
+  /** flat bonus Spirit regenerated per turn on top of SPIRIT_REGEN_PER_TURN, from a passive */
+  spiritRegenBonus?: number;
   statuses: StatusInstance[];
   cooldowns: Record<string, number>;
   usedOnce: Record<string, boolean>;
@@ -134,8 +142,16 @@ export interface MaherySetup {
   attributes: Attributes;
   skillRanks: Record<string, number>;
   actionBar: (string | null)[];
-  /** passive fraction (0..1) of incoming damage reduced, from equipped necklace guard gems */
+  /** passive fraction (0..1) of incoming damage reduced, from equipped necklace guard gems
+   * plus any chosen passive perk */
   damageReductionPct?: number;
+  /** fraction (0..1) added to max Health, from a chosen passive perk */
+  maxHealthPct?: number;
+  /** fraction (0..1) every equipped skill's Spirit cost is reduced by, from a passive perk */
+  spiritCostReduction?: number;
+  critChanceBonus?: number;
+  evasionBonus?: number;
+  spiritRegenBonus?: number;
 }
 
 export interface BattleSetup {
@@ -149,14 +165,22 @@ export interface BattleSetup {
 export function createBattle(setup: BattleSetup): BattleState {
   const { animal, mahery, enemies } = setup;
   const mAttrs = mahery.attributes;
-  const mHealth = maxHealth(mAttrs);
+  const mHealth = Math.round(maxHealth(mAttrs) * (1 + (mahery.maxHealthPct ?? 0)));
   const mSpirit = maxSpirit(mAttrs);
+
+  const bar = resolveActionBar(animal, mahery.actionBar, mahery.skillRanks);
+  const discount = mahery.spiritCostReduction ?? 0;
+  const skills = discount > 0
+    ? bar.map((sk) => (sk ? { ...sk, spiritCost: Math.max(0, Math.round(sk.spiritCost * (1 - discount))) } : null))
+    : bar;
 
   const maheryUnit: Unit = {
     id: 'mahery', name: 'Mahery', side: 'player', kind: 'mahery', color: '#c98a4b', art: heroArtId(animal.id),
     attributes: { ...mAttrs }, maxHealth: mHealth, health: mHealth, maxSpirit: mSpirit, spirit: mSpirit,
-    evasionBonus: 0, damageReductionPct: mahery.damageReductionPct, statuses: [], cooldowns: {}, usedOnce: {},
-    skills: resolveActionBar(animal, mahery.actionBar, mahery.skillRanks), isBoss: false,
+    evasionBonus: mahery.evasionBonus ?? 0, damageReductionPct: mahery.damageReductionPct,
+    critChanceBonus: mahery.critChanceBonus, spiritRegenBonus: mahery.spiritRegenBonus,
+    statuses: [], cooldowns: {}, usedOnce: {},
+    skills, isBoss: false,
   };
 
   const cAttrs: Attributes = {
@@ -226,6 +250,10 @@ export const isAlive = (u: Unit) => u.health > 0;
 export const hasStatus = (u: Unit, id: StatusId) => u.statuses.some((st) => st.id === id);
 export const getStatus = (u: Unit, id: StatusId) => u.statuses.find((st) => st.id === id);
 export const negativeStatusCount = (u: Unit) => u.statuses.filter((st) => NEGATIVE_STATUSES.includes(st.id)).length;
+/** Like negativeStatusCount, but a stacked Weaken/Bleed counts for each stack it holds, not just
+ * once - rewards actually piling debuffs up, not merely having a few different ones active. */
+export const negativeStatusWeight = (u: Unit) =>
+  u.statuses.filter((st) => NEGATIVE_STATUSES.includes(st.id)).reduce((sum, st) => sum + (st.stacks ?? 1), 0);
 
 export function effectiveAttributes(u: Unit): Attributes {
   const a = { ...u.attributes };
@@ -329,7 +357,7 @@ function dealDamage(s: BattleState, attackerId: UnitId, targetId: UnitId, base: 
   let amount = base;
   let crit = forceCrit;
   if (canCrit && !forceCrit) {
-    crit = withRng(s, (rng) => rng.chance(critChance(aAttrs.speed)));
+    crit = withRng(s, (rng) => rng.chance(critChance(aAttrs.speed, attacker.critChanceBonus ?? 0)));
   }
   if (crit) amount *= CRIT_MULTIPLIER;
   amount = withRng(s, (rng) => applyVariance(amount, rng.next()));
@@ -398,20 +426,36 @@ function onUnitDown(s: BattleState, u: Unit) {
   }
 }
 
+// Weaken and Bleed compound instead of refreshing: landing a second one while the first is still
+// active adds to it rather than replacing it, capped at this many applications' worth. Everything
+// that reads these statuses (Strength reduction, DoT tick damage) already just reads `magnitude`,
+// so accumulating it here is the only change those consumers need - the cap is expressed as a
+// multiple of whatever this application's own magnitude is, not a fixed number, since magnitude
+// itself scales with the caster's stats and rank.
+const STACKABLE_CAP: Partial<Record<StatusId, number>> = { weaken: 3, bleed: 3 };
+
 function addStatus(s: BattleState, ownerId: UnitId, sourceId: UnitId, id: StatusId, duration: number, magnitude: number, extra?: number) {
   const owner = s.units[ownerId];
   if (!isAlive(owner)) return;
   // applied during the owner's own side's turn: skip the first end-of-turn decrement
   const fresh = s.units[sourceId].side === owner.side;
   const existing = getStatus(owner, id);
+  const cap = STACKABLE_CAP[id];
   if (existing) {
     existing.remainingTurns = Math.max(existing.remainingTurns, duration);
-    existing.magnitude = id === 'guard' ? Math.max(existing.magnitude, magnitude) : magnitude;
+    if (id === 'guard') {
+      existing.magnitude = Math.max(existing.magnitude, magnitude);
+    } else if (cap) {
+      existing.magnitude = Math.min(existing.magnitude + magnitude, magnitude * cap);
+      existing.stacks = Math.min((existing.stacks ?? 1) + 1, cap);
+    } else {
+      existing.magnitude = magnitude;
+    }
     existing.extra = extra;
     existing.fresh = fresh;
     existing.sourceId = sourceId;
   } else {
-    owner.statuses.push({ id, remainingTurns: duration, magnitude, extra, sourceId, fresh });
+    owner.statuses.push({ id, remainingTurns: duration, magnitude, extra, sourceId, fresh, stacks: cap ? 1 : undefined });
   }
 }
 
@@ -459,8 +503,9 @@ function applySpecial(
     }
     case 'packInstinct': {
       const debuffs = negativeStatusCount(target);
-      const mult = (p.base ?? 1) + (p.perDebuff ?? 0.35) * debuffs;
-      if (debuffs > 0) pushLog(s, 'info', `${caster.name} presses ${debuffs} weakness${debuffs === 1 ? '' : 'es'}.`);
+      const weight = negativeStatusWeight(target);
+      const mult = (p.base ?? 1) + (p.perDebuff ?? 0.35) * weight;
+      if (debuffs > 0) pushLog(s, 'info', `${caster.name} presses ${debuffs} weakness${debuffs === 1 ? '' : 'es'}${weight > debuffs ? ` (stacked x${weight})` : ''}.`);
       return dealDamage(s, casterId, targetId, scaledValue(cAttrs, 'strength', mult));
     }
     case 'herdBlessing': {
@@ -543,10 +588,16 @@ function applyEffects(s: BattleState, casterId: UnitId, primaryTargetId: UnitId,
       case 'damage':
         for (const tid of targets) {
           const landedId = actual(tid);
+          // bonusVsStatus.multiplier is a fraction ADDED per stack (see STACKABLE_CAP above) -
+          // for a status that doesn't stack, presence just counts as 1 "stack".
           const bonus = effect.bonusVsStatus;
-          const qualifies = bonus && hasStatus(s.units[landedId], bonus.status);
-          const multiplier = qualifies ? effect.multiplier * bonus!.multiplier : effect.multiplier;
-          if (qualifies) pushLog(s, 'info', `${caster.name} punishes ${s.units[landedId].name}'s ${statusLabel(bonus!.status)}.`);
+          const bonusStatus = bonus && getStatus(s.units[landedId], bonus.status);
+          const bonusStacks = bonusStatus?.stacks ?? (bonusStatus ? 1 : 0);
+          const multiplier = bonusStatus ? effect.multiplier * (1 + bonus!.multiplier * bonusStacks) : effect.multiplier;
+          if (bonusStatus) {
+            const stackNote = bonusStacks > 1 ? ` (x${bonusStacks})` : '';
+            pushLog(s, 'info', `${caster.name} punishes ${s.units[landedId].name}'s ${statusLabel(bonus!.status)}${stackNote}.`);
+          }
           landedOn[tid] = dealDamage(s, casterId, landedId, scaledValue(cAttrs, effect.scaling, multiplier), {
             ignoreGuardPct: effect.ignoreGuardPct,
           });
@@ -630,7 +681,7 @@ function endTurnFor(s: BattleState, unitId: UnitId) {
     if (u.cooldowns[k] === 0) delete u.cooldowns[k];
   }
   // spirit regen
-  u.spirit = Math.min(u.maxSpirit, u.spirit + SPIRIT_REGEN_PER_TURN);
+  u.spirit = Math.min(u.maxSpirit, u.spirit + SPIRIT_REGEN_PER_TURN + (u.spiritRegenBonus ?? 0));
   // statuses: damage over time ticks, then durations
   for (const st of [...u.statuses]) {
     if (st.id === 'poison' || st.id === 'bleed') {

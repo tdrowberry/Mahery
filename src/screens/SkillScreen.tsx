@@ -1,13 +1,17 @@
 import { useState, type DragEvent } from 'react';
 import { useGame } from '../state/gameStore';
 import { getAnimal } from '../data/animals';
-import { ACTION_BAR_SLOTS, MAX_RANK, RANK_COST } from '../data/progression';
+import { ACTION_BAR_SLOTS, MAX_RANK, RANK_COST, respecCost } from '../data/progression';
 import type { Attributes, SkillDef } from '../data/types';
 import { checkUnlock, getAnimalSkills, resolveCompanionSkills } from '../engine/skills';
 import { maxHealth, maxSpirit } from '../engine/formulas';
+import { getPassive, pendingChoicePoints } from '../data/passives';
 import { SkillIcon } from '../components/Icon';
 import { SkillTooltip } from '../components/SkillTooltip';
 import { MenuStrip } from '../components/MenuStrip';
+
+/** A skill's own rank ceiling if it set one (signature skills go to 5), else the shared default. */
+const maxRankOf = (def: SkillDef) => def.maxRank ?? MAX_RANK;
 
 const ATTRS: { key: keyof Attributes; label: string; color: string; note: string }[] = [
   { key: 'vitality', label: 'Vitality', color: '#7fbf6a', note: '+5 max Health' },
@@ -16,33 +20,29 @@ const ATTRS: { key: keyof Attributes; label: string; color: string; note: string
   { key: 'speed', label: 'Speed', color: '#e8c15a', note: 'Turn order, crit, evasion' },
 ];
 
-// Tree layout in a 300x410 box, 3 columns: basic strike branches three ways, each grows a
-// second-tier node, those grow a third tier, then everything funnels down to the signature
-// skill at the bottom. Same width as the original 8-skill tree (the grid column it sits in
-// is sized for it); just taller, for the extra tier.
+// One straight chain (see sharedSkills.ts), laid out as a snake across a 3x4 grid so every
+// connector is a plain horizontal or vertical segment - no diagonals, so no line ever crosses
+// another. Reading order follows SHARED_KINDS: rank 1 in each skill unlocks the next, ending at
+// the signature skill - the most situational, highest-payoff tools come last.
 const TREE_POS: Record<string, { x: number; y: number }> = {
-  basicStrike: { x: 150, y: 25 },
-  guardStance: { x: 50, y: 95 },
-  powerStrike: { x: 150, y: 95 },
-  secondWind: { x: 250, y: 95 },
-  weaken: { x: 50, y: 165 },
-  instinctSurge: { x: 150, y: 165 },
-  rally: { x: 250, y: 165 },
-  rendingClaw: { x: 50, y: 235 },
-  secondBreath: { x: 150, y: 235 },
-  quickStrike: { x: 250, y: 235 },
-  hamstring: { x: 150, y: 305 },
-  unique: { x: 150, y: 375 },
+  basicStrike: { x: 50, y: 30 },
+  guardStance: { x: 150, y: 30 },
+  secondWind: { x: 250, y: 30 },
+  instinctSurge: { x: 250, y: 130 },
+  weaken: { x: 150, y: 130 },
+  powerStrike: { x: 50, y: 130 },
+  secondBreath: { x: 50, y: 230 },
+  rendingClaw: { x: 150, y: 230 },
+  quickStrike: { x: 250, y: 230 },
+  hamstring: { x: 250, y: 330 },
+  rally: { x: 150, y: 330 },
+  unique: { x: 50, y: 330 },
 };
 const TREE_LINKS: [string, string][] = [
-  ['basicStrike', 'guardStance'], ['basicStrike', 'powerStrike'], ['basicStrike', 'secondWind'], ['basicStrike', 'secondBreath'],
-  ['guardStance', 'weaken'], ['powerStrike', 'weaken'],
-  ['guardStance', 'instinctSurge'], ['secondWind', 'instinctSurge'],
-  ['secondWind', 'rally'],
-  ['weaken', 'rendingClaw'], ['powerStrike', 'rendingClaw'],
-  ['instinctSurge', 'quickStrike'], ['secondBreath', 'quickStrike'],
-  ['weaken', 'hamstring'], ['rendingClaw', 'hamstring'],
-  ['guardStance', 'unique'],
+  ['basicStrike', 'guardStance'], ['guardStance', 'secondWind'], ['secondWind', 'instinctSurge'],
+  ['instinctSurge', 'weaken'], ['weaken', 'powerStrike'], ['powerStrike', 'secondBreath'],
+  ['secondBreath', 'rendingClaw'], ['rendingClaw', 'quickStrike'], ['quickStrike', 'hamstring'],
+  ['hamstring', 'rally'], ['rally', 'unique'],
 ];
 
 export function SkillScreen() {
@@ -50,11 +50,15 @@ export function SkillScreen() {
   const unlockSkill = useGame((s) => s.unlockSkill);
   const spendAttribute = useGame((s) => s.spendAttribute);
   const setActionBarSlot = useGame((s) => s.setActionBarSlot);
+  const resetSkillTree = useGame((s) => s.resetSkillTree);
+  const choosePassive = useGame((s) => s.choosePassive);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
   const [poolPick, setPoolPick] = useState<string | null>(null);
+  const [confirmingReset, setConfirmingReset] = useState(false);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
   if (!save) return null;
 
   const animal = getAnimal(save.animalId);
@@ -65,11 +69,25 @@ export function SkillScreen() {
   const keyOf = (def: SkillDef) => def.sharedKind ?? 'unique';
   const unlocked = skills.filter((s) => (ranks[s.id] ?? 0) > 0);
   const companionKit = resolveCompanionSkills(animal, ranks);
+  const pendingPassive = pendingChoicePoints(save.animalId, ranks, m.passives)[0] ?? null;
+  const onPickPassive = (passiveId: string) => {
+    if (!pendingPassive) return;
+    choosePassive(pendingPassive.id, passiveId);
+  };
   const check = (def: SkillDef) => checkUnlock(def, ranks, m.level, m.abilityPoints, RANK_COST, skills);
 
   const onUnlock = (def: SkillDef) => {
     const err = unlockSkill(def.id);
-    setMessage(err ?? `${def.name} is now rank ${(ranks[def.id] ?? 0) + 1} of ${MAX_RANK}.`);
+    setMessage(err ?? `${def.name} is now rank ${(ranks[def.id] ?? 0) + 1} of ${maxRankOf(def)}.`);
+  };
+
+  const cost = respecCost(m.level);
+  const onReset = () => {
+    if (!confirmingReset) { setConfirmingReset(true); setResetMessage(null); return; }
+    const err = resetSkillTree();
+    setConfirmingReset(false);
+    setResetMessage(err ?? 'Ability tree and attributes reset. Reassign from scratch.');
+    setSelectedId(null);
   };
 
   const onDrop = (e: DragEvent, slot: number) => {
@@ -93,12 +111,29 @@ export function SkillScreen() {
 
   return (
     <div className="game">
+      {pendingPassive && (
+        <div className="steel passive-picker">
+          <div className="ab-title">Choose a Passive Perk</div>
+          <div className="muted small" style={{ marginBottom: 8 }}>
+            Permanent, always in effect, never takes an action-bar slot. Pick one - a respec lets
+            you re-pick later, but not swap freely otherwise.
+          </div>
+          <div className="passive-options">
+            {pendingPassive.options.map((opt) => (
+              <button key={opt.id} className="passive-option" onClick={() => onPickPassive(opt.id)} data-testid={`passive-${opt.id}`}>
+                <div className="sel-name">{opt.name}</div>
+                <div className="muted small">{opt.flavor}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="ability-screen">
         {/* left: ability tree */}
         <div className="steel ab-panel">
           <div className="ab-title">Ability Tree</div>
           <div className="tree-box">
-            <svg className="tree-links" viewBox="0 0 300 410" width="300" height="410">
+            <svg className="tree-links" viewBox="0 0 300 380" width="300" height="380">
               {TREE_LINKS.map(([a, b]) => {
                 const pa = TREE_POS[a]; const pb = TREE_POS[b];
                 const lit = (ranks[skills.find((s) => keyOf(s) === b)!.id] ?? 0) > 0;
@@ -121,7 +156,7 @@ export function SkillScreen() {
                     aria-label={def.name}
                   >
                     <SkillIcon icon={def.icon} color={animal.color} size={52} dim={rank === 0} />
-                    <span className="node-rank">{rank}/{MAX_RANK}</span>
+                    <span className="node-rank">{rank}/{maxRankOf(def)}</span>
                   </button>
                   {hoverId === def.id && <SkillTooltip def={def} rank={rank} />}
                 </div>
@@ -143,14 +178,14 @@ export function SkillScreen() {
                   <SkillIcon icon={selected.icon} color={animal.color} size={34} />
                   <div>
                     <div className="sel-name">{selected.name}</div>
-                    <div className="muted small">{(ranks[selected.id] ?? 0) === 0 ? 'Locked' : `Rank ${ranks[selected.id]} of ${MAX_RANK}`}{selected.kind === 'unique' ? ' · Signature' : ''}</div>
+                    <div className="muted small">{(ranks[selected.id] ?? 0) === 0 ? 'Locked' : `Rank ${ranks[selected.id]} of ${maxRankOf(selected)}`}{selected.kind === 'unique' ? ' · Signature' : ''}</div>
                   </div>
                 </div>
                 <div className="muted small sel-flavor">{selected.flavor}</div>
                 <SkillDetail def={selected} rank={ranks[selected.id] ?? 0} all={skills} />
                 <div className="row" style={{ marginTop: 8 }}>
                   <button className="btn btn-primary" disabled={!check(selected).ok} onClick={() => onUnlock(selected)} data-testid="unlock-btn">
-                    {(ranks[selected.id] ?? 0) === 0 ? `Learn (${RANK_COST} AP)` : (ranks[selected.id] ?? 0) >= MAX_RANK ? 'Max rank' : `Rank up (${RANK_COST} AP)`}
+                    {(ranks[selected.id] ?? 0) === 0 ? `Learn (${RANK_COST} AP)` : (ranks[selected.id] ?? 0) >= maxRankOf(selected) ? 'Max rank' : `Rank up (${RANK_COST} AP)`}
                   </button>
                   {!check(selected).ok && <span className="muted small">{check(selected).reason}</span>}
                 </div>
@@ -174,6 +209,32 @@ export function SkillScreen() {
               </div>
             ))}
             <div className="muted small" style={{ marginTop: 6 }}>Health {maxHealth(m.attributes)} · Spirit {maxSpirit(m.attributes)}</div>
+            {m.passives.length > 0 && (
+              <div className="muted small" style={{ marginTop: 8 }}>
+                <b>Passives:</b> {m.passives.map((id) => getPassive(id)?.name ?? id).join(', ')}
+              </div>
+            )}
+          </div>
+          <div className="steel ab-panel">
+            <div className="ab-title">Reset Build</div>
+            <div className="muted small" style={{ marginBottom: 8 }}>
+              Refund every Ability and Attribute Point spent (abilities back to none but the free
+              Basic Strike, attributes back to base) and reassign from scratch.
+            </div>
+            {confirmingReset ? (
+              <div className="stack" style={{ gap: 6 }}>
+                <div className="small" style={{ color: 'var(--bad)' }}>Reset everything for {cost} Marks? This cannot be undone.</div>
+                <div className="row">
+                  <button className="btn btn-primary" onClick={onReset} data-testid="confirm-reset-btn">Confirm Reset</button>
+                  <button className="btn btn-sm" onClick={() => setConfirmingReset(false)}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <button className="btn" disabled={save.mahery.marks < cost} onClick={onReset} data-testid="reset-tree-btn">
+                Reset ({cost} Marks)
+              </button>
+            )}
+            {resetMessage && <div className="hint" style={{ marginTop: 6 }}>{resetMessage}</div>}
           </div>
         </div>
 
@@ -216,7 +277,7 @@ export function SkillScreen() {
               >
                 <SkillIcon icon={def.icon} color={animal.color} size={34} />
                 <span className="pool-name">{def.name}</span>
-                <span className="pool-rank muted small">{ranks[def.id]}/{MAX_RANK}</span>
+                <span className="pool-rank muted small">{ranks[def.id]}/{maxRankOf(def)}</span>
               </div>
             ))}
           </div>
@@ -233,14 +294,13 @@ export function SkillScreen() {
 
 function SkillDetail({ def, rank, all }: { def: SkillDef; rank: number; all: SkillDef[] }) {
   const current = rank > 0 ? def.ranks[rank - 1] : null;
-  const next = rank < MAX_RANK ? def.ranks[rank] : null;
+  const next = rank < maxRankOf(def) ? def.ranks[rank] : null;
   const nameOf = (id: string) => all.find((s) => s.id === id)?.name ?? id;
   return (
     <div className="small stack" style={{ gap: 4 }}>
       {current && <div><b>Current:</b> {current.summary} <span className="muted">({current.spiritCost} Spirit{current.cooldown ? `, ${current.cooldown} turn cooldown` : ''})</span></div>}
       {next && <div className={current ? 'muted' : ''}><b>{current ? 'Next tier' : 'Tier 1'}:</b> {next.summary} <span className="muted">({next.spiritCost} Spirit{next.cooldown ? `, ${next.cooldown} turn cooldown` : ''})</span></div>}
       {def.requires && <div className="muted">Requires: {def.requires.map((r) => `${nameOf(r.skillId)} rank ${r.rank}`).join(', ')}</div>}
-      {def.requiresAny && <div className="muted">Requires: {def.requiresAny.map((g) => g.map((r) => `${nameOf(r.skillId)} rank ${r.rank}`).join(' + ')).join(' or ')}</div>}
       {def.minLevel && <div className="muted">Requires level {def.minLevel}</div>}
     </div>
   );

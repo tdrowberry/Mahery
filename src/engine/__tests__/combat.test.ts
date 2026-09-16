@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Attributes, EnemyDef, EnemyMove } from '../../data/types';
 import { getAnimal } from '../../data/animals';
+import { SHARED_KINDS } from '../../data/sharedSkills';
 import { maxHealth, maxSpirit, scaledValue } from '../formulas';
 import { createRng } from '../rng';
 import {
@@ -344,16 +345,24 @@ describe('progression', () => {
     expect(xpToNextLevel(2)).toBe(150);
   });
   it('skill tree prerequisites gate unlocks', () => {
+    // The whole shared-skill list is one straight chain (see sharedSkills.ts): the signature
+    // skill requires rank 1 of the last link, Rally ("Den Call" for bear).
     const unique = ALL_SKILLS.find((k) => k.id === ids.unique)!;
-    const noGuard = checkUnlock(unique, { [ids.basicStrike]: 1 }, 5, 5, 1, ALL_SKILLS);
-    expect(noGuard.ok).toBe(false);
-    expect(noGuard.reason).toMatch(/Thick Hide rank 2/);
-    const lowLevel = checkUnlock(unique, { [ids.basicStrike]: 1, [ids.guardStance]: 2 }, 1, 5, 1, ALL_SKILLS);
+    const noRally = checkUnlock(unique, { [ids.basicStrike]: 1 }, 5, 5, 1, ALL_SKILLS);
+    expect(noRally.ok).toBe(false);
+    expect(noRally.reason).toMatch(/Den Call rank 1/);
+    const lowLevel = checkUnlock(unique, { [ids.basicStrike]: 1, [ids.rally]: 1 }, 1, 5, 1, ALL_SKILLS);
     expect(lowLevel.reason).toMatch(/level 2/);
-    const ok = checkUnlock(unique, { [ids.basicStrike]: 1, [ids.guardStance]: 2 }, 2, 5, 1, ALL_SKILLS);
+    const ok = checkUnlock(unique, { [ids.basicStrike]: 1, [ids.rally]: 1 }, 2, 5, 1, ALL_SKILLS);
     expect(ok.ok).toBe(true);
     const maxed = checkUnlock(unique, { [ids.unique]: 3 }, 9, 9, 1, ALL_SKILLS);
     expect(maxed.ok).toBe(false);
+  });
+  it('the shared-skill chain has no forks - each rank 1 requires only the one before it', () => {
+    for (let i = 1; i < SHARED_KINDS.length; i++) {
+      const def = ALL_SKILLS.find((k) => k.sharedKind === SHARED_KINDS[i])!;
+      expect(def.requires).toEqual([{ skillId: `bear.${SHARED_KINDS[i - 1]}`, rank: 1 }]);
+    }
   });
   it('save file round-trips through migrate', () => {
     const save = createNewSave('bear');

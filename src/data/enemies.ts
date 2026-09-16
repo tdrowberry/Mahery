@@ -47,7 +47,7 @@ const viperAmbusher: EnemyDef = {
     {
       id: 'viper.fangStrike', name: 'Fang Strike', icon: 'slash', anim: 'strike', target: 'enemy', spiritCost: 0, cooldown: 0, rank: 1,
       summary: 'Deal 100% Strength damage (140% against a poisoned target).', weight: 3,
-      effects: [{ kind: 'damage', scaling: 'strength', multiplier: 1.0, bonusVsStatus: { status: 'poison', multiplier: 1.4 } }],
+      effects: [{ kind: 'damage', scaling: 'strength', multiplier: 1.0, bonusVsStatus: { status: 'poison', multiplier: 0.4 } }],
     },
     {
       id: 'viper.coiledStrike', name: 'Coiled Strike', icon: 'shadow', anim: 'charge', target: 'enemy', spiritCost: 6, cooldown: 3, rank: 1,
@@ -69,6 +69,7 @@ const sessik: EnemyDef = {
   evasionBonus: 0.05,
   isBoss: true,
   marksReward: 30,
+  guaranteedLoot: 'guard3',
   loot: [{ itemId: 'guard2', chance: 0.3 }, { itemId: 'speed2', chance: 0.22 }],
   moves: [
     {
@@ -153,7 +154,7 @@ const widowStalker: EnemyDef = {
     {
       id: 'widow.bite', name: 'Bite', icon: 'slash', anim: 'strike', target: 'enemy', spiritCost: 0, cooldown: 0, rank: 1,
       summary: 'Deal 105% Strength damage (145% against a slowed target).', weight: 3,
-      effects: [{ kind: 'damage', scaling: 'strength', multiplier: 1.05, bonusVsStatus: { status: 'speedDown', multiplier: 1.4 } }],
+      effects: [{ kind: 'damage', scaling: 'strength', multiplier: 1.05, bonusVsStatus: { status: 'speedDown', multiplier: 0.4 } }],
     },
     {
       id: 'widow.poisonFang', name: 'Poison Fang', icon: 'venom', anim: 'venom', target: 'enemy', spiritCost: 5, cooldown: 3, rank: 1,
@@ -183,6 +184,7 @@ const vethra: EnemyDef = {
   evasionBonus: 0.06,
   isBoss: true,
   marksReward: 50,
+  guaranteedLoot: 'speed4',
   loot: [{ itemId: 'speed3', chance: 0.26 }, { itemId: 'instinct3', chance: 0.19 }],
   moves: [
     {
@@ -305,6 +307,7 @@ const drevik: EnemyDef = {
   evasionBonus: 0.03,
   isBoss: true,
   marksReward: 65,
+  guaranteedLoot: 'vitality5',
   loot: [{ itemId: 'guard3', chance: 0.26 }, { itemId: 'vitality3', chance: 0.19 }],
   moves: [
     {
@@ -419,6 +422,7 @@ const skarrow: EnemyDef = {
   evasionBonus: 0.09,
   isBoss: true,
   marksReward: 80,
+  guaranteedLoot: 'instinct5',
   loot: [{ itemId: 'instinct4', chance: 0.26 }, { itemId: 'strength4', chance: 0.19 }],
   moves: [
     {
@@ -527,6 +531,7 @@ const corvath: EnemyDef = {
   evasionBonus: 0.14,
   isBoss: true,
   marksReward: 100,
+  guaranteedLoot: 'strength5',
   loot: [{ itemId: 'strength4', chance: 0.3 }, { itemId: 'speed4', chance: 0.22 }],
   moves: [
     {
@@ -603,6 +608,7 @@ const yorrun: EnemyDef = {
   isBoss: true,
   corrupted: true,
   marksReward: 150,
+  guaranteedLoot: 'guard5',
   loot: [{ itemId: 'strength5', chance: 0.38 }, { itemId: 'guard5', chance: 0.3 }],
   moves: [
     {

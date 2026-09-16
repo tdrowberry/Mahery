@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { getAnimal } from '../../data/animals';
 import { getEncounter } from '../../data/encounters';
 import { getEnemy } from '../../data/enemies';
+import { SHARED_KINDS } from '../../data/sharedSkills';
+import { MAX_TOTAL_ABILITY_POINTS } from '../../data/progression';
 import { createNewSave } from '../../state/saveFormat';
 import { advance, checkSkillUsable, createBattle, hasStatus, playerUseSkill, type BattleState } from '../combat';
 
@@ -12,19 +14,68 @@ import { advance, checkSkillUsable, createBattle, hasStatus, playerUseSkill, typ
 
 type Setup = { ranks: Record<string, number>; bar: (string | null)[]; strengthBonus: number; vitalityBonus: number };
 
+// The shared skills are one straight chain now (see sharedSkills.ts): rank 1 of skill N
+// requires rank 1 of skill N-1, ending at the signature skill. So "what can a level-N player
+// actually have unlocked" is no longer a free choice of which nodes to buy - it is a budget of
+// Ability Points spent walking that chain. This builds the same kind of kit a sensible player
+// reaching a given point budget would actually have: unlock rank 1 all the way down the chain
+// as far as it goes, then spend anything left reinforcing the front of it (the skills that are
+// both usable early and already on the bar) up toward rank 3.
+const CHAIN = [...SHARED_KINDS, 'unique'];
+function chainKit(abilityPoints: number, strengthBonus: number, vitalityBonus: number): Setup {
+  const ranks: Record<string, number> = { 'bear.basicStrike': 1 };
+  let points = abilityPoints;
+  for (let i = 1; i < CHAIN.length && points > 0; i++) {
+    ranks[`bear.${CHAIN[i]}`] = 1;
+    points -= 1;
+  }
+  let i = 0;
+  while (points > 0 && i < CHAIN.length) {
+    const key = `bear.${CHAIN[i]}`;
+    const cap = CHAIN[i] === 'unique' ? 5 : 3; // the signature skill alone goes to 5 - see animals.ts
+    if ((ranks[key] ?? 0) > 0 && ranks[key] < cap) { ranks[key] += 1; points -= 1; } else { i += 1; }
+  }
+  // The bar can only hold 6 of the up-to-12 unlocked skills, so which 6 matters: a real player
+  // would equip a coherent rotation, not just whichever unlocked first in chain order (that
+  // would silently drop the capstone `unique` skill off the bar of every fully-invested kit,
+  // since it sits at the very back of CHAIN). These 6 are policy()'s core loadout - sustain,
+  // defense, a debuff/payoff pair, the signature skill, and the always-available basic attack
+  // it falls back to unconditionally, so basicStrike must never be crowded off the bar. Support
+  // skills (rally, instinctSurge, secondBreath) fill any slots left over on smaller kits, but
+  // lose out on a fully-unlocked kit, same as a real player choosing a focused 6-skill bar would.
+  const BAR_PRIORITY = ['basicStrike', 'unique', 'secondWind', 'guardStance', 'weaken', 'powerStrike'];
+  const unlockedKinds = CHAIN.filter((k) => (ranks[`bear.${k}`] ?? 0) > 0);
+  const prioritized = [
+    ...BAR_PRIORITY.filter((k) => unlockedKinds.includes(k)),
+    ...unlockedKinds.filter((k) => !BAR_PRIORITY.includes(k)),
+  ];
+  const bar: (string | null)[] = prioritized.slice(0, 6).map((k) => `bear.${k}`);
+  while (bar.length < 6) bar.push(null);
+  return { ranks, bar, strengthBonus, vitalityBonus };
+}
+
 function policy(s: BattleState): BattleState {
   const u = s.units.mahery;
   const alive = s.enemyIds.filter((id) => s.units[id].health > 0).sort((a, b) => s.units[a].health - s.units[b].health);
+  const target = alive[0];
   const usable = (id: string) => {
     const k = u.skills.find((x) => x && x.id === id);
     return k && !checkSkillUsable(s, u.id, k);
   };
   const hp = u.health / u.maxHealth;
+  const sp = u.maxSpirit > 0 ? u.spirit / u.maxSpirit : 1;
+  const companion = s.units.companion;
+  const allyHurt = !!companion && companion.health > 0 && companion.health / companion.maxHealth < 0.5;
+
   if (hp < 0.4 && usable('bear.secondWind')) return playerUseSkill(s, 'bear.secondWind');
-  if (usable('bear.unique') && !hasStatus(u, 'resolve') && !u.pending) return playerUseSkill(s, 'bear.unique', alive[0]);
+  if (usable('bear.unique') && !hasStatus(u, 'resolve') && !u.pending) return playerUseSkill(s, 'bear.unique', target);
+  if (allyHurt && usable('bear.rally')) return playerUseSkill(s, 'bear.rally');
   if (hp < 0.7 && usable('bear.guardStance') && !hasStatus(u, 'guard')) return playerUseSkill(s, 'bear.guardStance');
   if (usable('bear.instinctSurge') && !hasStatus(u, 'strengthUp')) return playerUseSkill(s, 'bear.instinctSurge');
-  return playerUseSkill(s, 'bear.basicStrike', alive[0]);
+  if (sp < 0.3 && usable('bear.secondBreath')) return playerUseSkill(s, 'bear.secondBreath');
+  if (target && !hasStatus(s.units[target], 'weaken') && usable('bear.weaken')) return playerUseSkill(s, 'bear.weaken', target);
+  if (usable('bear.powerStrike')) return playerUseSkill(s, 'bear.powerStrike', target);
+  return playerUseSkill(s, 'bear.basicStrike', target);
 }
 
 function simulate(encounterId: string, setup: Setup, seed: number) {
@@ -58,28 +109,14 @@ function winRate(encounterId: string, setup: Setup, n = 150) {
   return { rate: wins / n, avgRounds: rounds / n };
 }
 
-const LEVEL1_KIT: Setup = {
-  ranks: { 'bear.basicStrike': 1, 'bear.guardStance': 1, 'bear.secondWind': 1, 'bear.instinctSurge': 1 },
-  bar: ['bear.basicStrike', 'bear.guardStance', 'bear.secondWind', 'bear.instinctSurge'],
-  strengthBonus: 0, vitalityBonus: 0,
-};
-const BOSS_KIT: Setup = {
-  ranks: { 'bear.basicStrike': 1, 'bear.guardStance': 2, 'bear.secondWind': 1, 'bear.instinctSurge': 1, 'bear.unique': 1 },
-  bar: ['bear.basicStrike', 'bear.guardStance', 'bear.secondWind', 'bear.unique'],
-  strengthBonus: 6, vitalityBonus: 4,
-};
+const LEVEL1_KIT = chainKit(3, 0, 0);
+// A level-4 kit that just cleared stages 1-4 once, spending every Ability Point earned so far
+// and nothing more - the bare-minimum first attempt at the boss.
+const BOSS_KIT = chainKit(6, 6, 4);
 // Represents the payoff of a little extra grinding beyond a bare first-timer's kit - a couple
 // of roaming fights' worth of ability/attribute points and maybe a found gem or two.
-const CH1_GROUND_KIT: Setup = {
-  ranks: { 'bear.basicStrike': 2, 'bear.guardStance': 2, 'bear.secondWind': 1, 'bear.instinctSurge': 1, 'bear.weaken': 1, 'bear.unique': 2 },
-  bar: ['bear.basicStrike', 'bear.guardStance', 'bear.secondWind', 'bear.weaken', 'bear.unique'],
-  strengthBonus: 10, vitalityBonus: 8,
-};
-const CH2_FULL_KIT: Setup = {
-  ranks: { 'bear.basicStrike': 2, 'bear.guardStance': 2, 'bear.secondWind': 2, 'bear.instinctSurge': 2, 'bear.unique': 2 },
-  bar: ['bear.basicStrike', 'bear.guardStance', 'bear.secondWind', 'bear.unique'],
-  strengthBonus: 12, vitalityBonus: 8,
-};
+const CH1_GROUND_KIT = chainKit(10, 10, 8);
+const CH2_FULL_KIT = chainKit(16, 12, 8);
 
 // A player who never opens the Skills screen or Inventory: only the free starting Basic
 // Strike, base attributes untouched, no gems equipped. The kits above are supposed to clear
@@ -198,28 +235,13 @@ describe('chapter 2 balance', () => {
 });
 
 // Chapters 3-6 assume progressively more leveling and a fuller learned kit, same spirit as
-// CH2_FULL_KIT: growing strength/vitality bonuses stand in for the attribute points a player
-// would actually have by that point in the road, rather than simulating the full XP curve.
-const CH3_KIT: Setup = {
-  ranks: { 'bear.basicStrike': 2, 'bear.guardStance': 2, 'bear.secondWind': 2, 'bear.powerStrike': 2, 'bear.weaken': 2, 'bear.unique': 2 },
-  bar: ['bear.basicStrike', 'bear.weaken', 'bear.powerStrike', 'bear.guardStance', 'bear.secondWind', 'bear.unique'],
-  strengthBonus: 18, vitalityBonus: 14,
-};
-const CH4_KIT: Setup = {
-  ranks: { ...CH3_KIT.ranks, 'bear.powerStrike': 3, 'bear.weaken': 3, 'bear.unique': 3 },
-  bar: CH3_KIT.bar,
-  strengthBonus: 26, vitalityBonus: 20,
-};
-const CH5_KIT: Setup = {
-  ranks: { ...CH4_KIT.ranks, 'bear.guardStance': 3, 'bear.secondWind': 3 },
-  bar: CH4_KIT.bar,
-  strengthBonus: 34, vitalityBonus: 26,
-};
-const FINAL_KIT: Setup = {
-  ranks: { ...CH5_KIT.ranks, 'bear.basicStrike': 3 },
-  bar: CH5_KIT.bar,
-  strengthBonus: 42, vitalityBonus: 32,
-};
+// CH2_FULL_KIT: growing Ability/Attribute Point budgets stand in for how far down the chain -
+// and how deep into it - a player would actually be by that point in the road, rather than
+// simulating the full XP curve.
+const CH3_KIT = chainKit(22, 18, 14);
+const CH4_KIT = chainKit(28, 26, 20);
+const CH5_KIT = chainKit(32, 34, 26);
+const FINAL_KIT = chainKit(MAX_TOTAL_ABILITY_POINTS, 42, 32);
 
 describe('chapter 3 balance (crocodile)', () => {
   it('stage 1 is winnable with a chapter-2-tier kit', () => {
