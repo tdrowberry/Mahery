@@ -13,7 +13,7 @@ const skulker: EnemyDef = {
   evasionBonus: 0.08,
   isBoss: false,
   marksReward: 6,
-  loot: [{ itemId: 'strength1', chance: 0.05 }, { itemId: 'speed1', chance: 0.05 }],
+  loot: [{ itemId: 'strength1', chance: 0.02 }, { itemId: 'speed1', chance: 0.02 }],
   moves: [
     {
       id: 'skulker.fangStrike', name: 'Fang Strike', icon: 'slash', anim: 'strike', target: 'enemy', spiritCost: 0, cooldown: 0, rank: 1,
@@ -42,7 +42,7 @@ const viperAmbusher: EnemyDef = {
   evasionBonus: 0.16,
   isBoss: false,
   marksReward: 7,
-  loot: [{ itemId: 'instinct1', chance: 0.05 }, { itemId: 'vitality1', chance: 0.05 }],
+  loot: [{ itemId: 'instinct1', chance: 0.02 }, { itemId: 'vitality1', chance: 0.02 }],
   moves: [
     {
       id: 'viper.fangStrike', name: 'Fang Strike', icon: 'slash', anim: 'strike', target: 'enemy', spiritCost: 0, cooldown: 0, rank: 1,
@@ -70,7 +70,7 @@ const sessik: EnemyDef = {
   isBoss: true,
   marksReward: 30,
   guaranteedLoot: 'guard3',
-  loot: [{ itemId: 'guard2', chance: 0.3 }, { itemId: 'speed2', chance: 0.22 }],
+  loot: [{ itemId: 'guard2', chance: 0.16 }, { itemId: 'speed2', chance: 0.12 }],
   moves: [
     {
       id: 'sessik.fangStrike', name: 'Fang Strike', icon: 'slash', anim: 'strike', target: 'enemy', spiritCost: 0, cooldown: 0, rank: 1,
@@ -115,7 +115,7 @@ const webSkulker: EnemyDef = {
   evasionBonus: 0.05,
   isBoss: false,
   marksReward: 10,
-  loot: [{ itemId: 'instinct2', chance: 0.04 }, { itemId: 'guard2', chance: 0.04 }],
+  loot: [{ itemId: 'instinct2', chance: 0.02 }, { itemId: 'guard2', chance: 0.02 }],
   moves: [
     {
       id: 'webSkulker.bite', name: 'Bite', icon: 'slash', anim: 'strike', target: 'enemy', spiritCost: 0, cooldown: 0, rank: 1,
@@ -149,7 +149,7 @@ const widowStalker: EnemyDef = {
   evasionBonus: 0.06,
   isBoss: false,
   marksReward: 12,
-  loot: [{ itemId: 'strength2', chance: 0.05 }, { itemId: 'vitality2', chance: 0.04 }],
+  loot: [{ itemId: 'strength2', chance: 0.02 }, { itemId: 'vitality2', chance: 0.02 }],
   moves: [
     {
       id: 'widow.bite', name: 'Bite', icon: 'slash', anim: 'strike', target: 'enemy', spiritCost: 0, cooldown: 0, rank: 1,
@@ -185,7 +185,7 @@ const vethra: EnemyDef = {
   isBoss: true,
   marksReward: 50,
   guaranteedLoot: 'speed4',
-  loot: [{ itemId: 'speed3', chance: 0.26 }, { itemId: 'instinct3', chance: 0.19 }],
+  loot: [{ itemId: 'speed3', chance: 0.14 }, { itemId: 'instinct3', chance: 0.1 }],
   moves: [
     {
       id: 'vethra.bite', name: 'Fang Strike', icon: 'slash', anim: 'strike', target: 'enemy', spiritCost: 0, cooldown: 0, rank: 1,
@@ -239,7 +239,7 @@ const snapper: EnemyDef = {
   evasionBonus: 0.02,
   isBoss: false,
   marksReward: 16,
-  loot: [{ itemId: 'vitality2', chance: 0.05 }, { itemId: 'guard2', chance: 0.04 }],
+  loot: [{ itemId: 'vitality2', chance: 0.02 }, { itemId: 'guard2', chance: 0.02 }],
   moves: [
     {
       id: 'snapper.bite', name: 'Bite', icon: 'slash', anim: 'strike', target: 'enemy', spiritCost: 0, cooldown: 0, rank: 1,
@@ -272,7 +272,7 @@ const strangler: EnemyDef = {
   evasionBonus: 0.01,
   isBoss: false,
   marksReward: 19,
-  loot: [{ itemId: 'strength2', chance: 0.05 }, { itemId: 'speed2', chance: 0.04 }],
+  loot: [{ itemId: 'strength2', chance: 0.02 }, { itemId: 'speed2', chance: 0.02 }],
   moves: [
     {
       id: 'strangler.bite', name: 'Bite', icon: 'slash', anim: 'strike', target: 'enemy', spiritCost: 0, cooldown: 0, rank: 1,
@@ -308,7 +308,7 @@ const drevik: EnemyDef = {
   isBoss: true,
   marksReward: 65,
   guaranteedLoot: 'vitality5',
-  loot: [{ itemId: 'guard3', chance: 0.26 }, { itemId: 'vitality3', chance: 0.19 }],
+  loot: [{ itemId: 'guard3', chance: 0.14 }, { itemId: 'vitality3', chance: 0.1 }],
   moves: [
     {
       id: 'drevik.bite', name: 'Fang Strike', icon: 'slash', anim: 'strike', target: 'enemy', spiritCost: 0, cooldown: 0, rank: 1,
@@ -353,7 +353,7 @@ const picker: EnemyDef = {
   evasionBonus: 0.08,
   isBoss: false,
   marksReward: 20,
-  loot: [{ itemId: 'speed3', chance: 0.05 }, { itemId: 'instinct3', chance: 0.04 }],
+  loot: [{ itemId: 'speed3', chance: 0.02 }, { itemId: 'instinct3', chance: 0.02 }],
   moves: [
     {
       id: 'picker.peck', name: 'Peck', icon: 'slash', anim: 'strike', target: 'enemy', spiritCost: 0, cooldown: 0, rank: 1,
@@ -387,7 +387,7 @@ const carrionStalker: EnemyDef = {
   evasionBonus: 0.09,
   isBoss: false,
   marksReward: 23,
-  loot: [{ itemId: 'strength3', chance: 0.05 }, { itemId: 'guard3', chance: 0.04 }],
+  loot: [{ itemId: 'strength3', chance: 0.02 }, { itemId: 'guard3', chance: 0.02 }],
   moves: [
     {
       id: 'carrionStalker.peck', name: 'Peck', icon: 'slash', anim: 'strike', target: 'enemy', spiritCost: 0, cooldown: 0, rank: 1,
@@ -423,7 +423,7 @@ const skarrow: EnemyDef = {
   isBoss: true,
   marksReward: 80,
   guaranteedLoot: 'instinct5',
-  loot: [{ itemId: 'instinct4', chance: 0.26 }, { itemId: 'strength4', chance: 0.19 }],
+  loot: [{ itemId: 'instinct4', chance: 0.14 }, { itemId: 'strength4', chance: 0.1 }],
   moves: [
     {
       id: 'skarrow.peck', name: 'Peck', icon: 'slash', anim: 'strike', target: 'enemy', spiritCost: 0, cooldown: 0, rank: 1,
@@ -470,7 +470,7 @@ const talon: EnemyDef = {
   evasionBonus: 0.14,
   isBoss: false,
   marksReward: 24,
-  loot: [{ itemId: 'speed3', chance: 0.05 }, { itemId: 'vitality3', chance: 0.04 }],
+  loot: [{ itemId: 'speed3', chance: 0.02 }, { itemId: 'vitality3', chance: 0.02 }],
   moves: [
     {
       id: 'talon.slash', name: 'Talon Strike', icon: 'slash', anim: 'strike', target: 'enemy', spiritCost: 0, cooldown: 0, rank: 1,
@@ -500,7 +500,7 @@ const shadowwing: EnemyDef = {
   evasionBonus: 0.13,
   isBoss: false,
   marksReward: 27,
-  loot: [{ itemId: 'guard3', chance: 0.05 }, { itemId: 'instinct3', chance: 0.04 }],
+  loot: [{ itemId: 'guard3', chance: 0.02 }, { itemId: 'instinct3', chance: 0.02 }],
   moves: [
     {
       id: 'shadowwing.slash', name: 'Talon Strike', icon: 'slash', anim: 'strike', target: 'enemy', spiritCost: 0, cooldown: 0, rank: 1,
@@ -532,7 +532,7 @@ const corvath: EnemyDef = {
   isBoss: true,
   marksReward: 100,
   guaranteedLoot: 'strength5',
-  loot: [{ itemId: 'strength4', chance: 0.3 }, { itemId: 'speed4', chance: 0.22 }],
+  loot: [{ itemId: 'strength4', chance: 0.16 }, { itemId: 'speed4', chance: 0.12 }],
   moves: [
     {
       id: 'corvath.slash', name: 'Talon Strike', icon: 'slash', anim: 'strike', target: 'enemy', spiritCost: 0, cooldown: 0, rank: 1,
@@ -576,7 +576,7 @@ const clanWarrior: EnemyDef = {
   isBoss: false,
   corrupted: true,
   marksReward: 30,
-  loot: [{ itemId: 'vitality4', chance: 0.05 }, { itemId: 'guard4', chance: 0.05 }],
+  loot: [{ itemId: 'vitality4', chance: 0.02 }, { itemId: 'guard4', chance: 0.02 }],
   moves: [
     {
       id: 'warrior.slash', name: 'Spear Thrust', icon: 'slash', anim: 'strike', target: 'enemy', spiritCost: 0, cooldown: 0, rank: 1,
@@ -609,7 +609,7 @@ const yorrun: EnemyDef = {
   corrupted: true,
   marksReward: 150,
   guaranteedLoot: 'guard5',
-  loot: [{ itemId: 'strength5', chance: 0.38 }, { itemId: 'guard5', chance: 0.3 }],
+  loot: [{ itemId: 'strength5', chance: 0.22 }, { itemId: 'guard5', chance: 0.17 }],
   moves: [
     {
       id: 'yorrun.bite', name: 'Direwolf Bite', icon: 'slash', anim: 'strike', target: 'enemy', spiritCost: 0, cooldown: 0, rank: 1,

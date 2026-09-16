@@ -1,13 +1,13 @@
 import type {
   ActiveSkill, AnimalDef, AnimStyle, ArtId, Attributes, Effect, EnemyDef, EnemyMove, Stance, StatusId, VoiceLines,
 } from '../data/types';
-import { COMPANION_RATIOS } from '../data/companion';
+import { COMPANION_RATIOS, STAND_TOGETHER } from '../data/companion';
 import { heroArtId } from '../data/animals';
 import { createRng, type Rng } from './rng';
 import {
   applyVariance, CRIT_MULTIPLIER, critChance, evasionChance, maxHealth, maxSpirit, round, scaledValue,
 } from './formulas';
-import { resolveActionBar, resolveCompanionSkills } from './skills';
+import { resolveActionBar, resolveCompanionSkills, resolveSkill } from './skills';
 import { chooseEnemyMove } from './ai';
 import { chooseAllyMove } from './allyAi';
 
@@ -154,16 +154,26 @@ export interface MaherySetup {
   spiritRegenBonus?: number;
 }
 
+export interface CompanionSetup {
+  skillRanks: Record<string, number>;
+  actionBar: (string | null)[];
+}
+
 export interface BattleSetup {
   encounterId: string;
   animal: AnimalDef;
   mahery: MaherySetup;
+  /** The companion's own action bar, independently unlocked/equipped from Mahery's - omit to
+   * fall back to the old "knows everything Mahery does" behavior (every simulated/test battle
+   * that doesn't care about companion-bar specifics; real play always passes this explicitly,
+   * see beginBattle in state/gameStore.ts). */
+  companion?: CompanionSetup;
   enemies: EnemyDef[];
   seed: number;
 }
 
 export function createBattle(setup: BattleSetup): BattleState {
-  const { animal, mahery, enemies } = setup;
+  const { animal, mahery, enemies, companion: companionSetup } = setup;
   const mAttrs = mahery.attributes;
   const mHealth = Math.round(maxHealth(mAttrs) * (1 + (mahery.maxHealthPct ?? 0)));
   const mSpirit = maxSpirit(mAttrs);
@@ -191,11 +201,17 @@ export function createBattle(setup: BattleSetup): BattleState {
   };
   const cHealth = Math.round(mHealth * COMPANION_RATIOS.health);
   const cSpirit = Math.round(mSpirit * COMPANION_RATIOS.spirit);
+  // The companion's own action bar, unlocked and equipped independently of Mahery's (see
+  // CompanionSetup) - Stand Together rides along regardless, since it's the bond itself, not a
+  // learnable move competing for one of the 6 slots.
+  const companionSkills: (ActiveSkill | null)[] = companionSetup
+    ? [...resolveActionBar(animal, companionSetup.actionBar, companionSetup.skillRanks), resolveSkill(STAND_TOGETHER, 1)]
+    : resolveCompanionSkills(animal, mahery.skillRanks);
   const companion: Unit = {
     id: 'companion', name: animal.name, side: 'player', kind: 'companion', color: animal.color, art: animal.art,
     attributes: cAttrs, maxHealth: cHealth, health: cHealth, maxSpirit: cSpirit, spirit: cSpirit,
     evasionBonus: 0, statuses: [], cooldowns: {}, usedOnce: {},
-    skills: resolveCompanionSkills(animal, mahery.skillRanks), isBoss: false,
+    skills: companionSkills, isBoss: false,
   };
 
   const units: Record<UnitId, Unit> = { mahery: maheryUnit, companion };

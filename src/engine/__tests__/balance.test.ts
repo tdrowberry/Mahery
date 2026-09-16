@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { getAnimal } from '../../data/animals';
-import { getEncounter } from '../../data/encounters';
+import { ENCOUNTERS, getEncounter } from '../../data/encounters';
 import { getEnemy } from '../../data/enemies';
+import { shopLevelCap, shopPrice } from '../../data/gems';
 import { SKILL_COLUMNS } from '../../data/sharedSkills';
 import type { SharedKind } from '../../data/types';
 import { MAX_TOTAL_ABILITY_POINTS } from '../../data/progression';
@@ -315,5 +316,26 @@ describe('final chapter balance (the old chief)', () => {
     console.log(`final-s2 boss (Yorrun): win ${Math.round(r.rate * 100)}%, avg ${r.avgRounds.toFixed(1)} rounds`);
     expect(r.rate).toBeGreaterThan(0.3);
     expect(r.avgRounds).toBeLessThan(30);
+  });
+});
+
+describe('gem shop pricing', () => {
+  // A first-timer clearing a chapter (every stage once, no roaming fights) earns this many
+  // Marks total - the actual per-chapter economy, computed from the real encounter/enemy data
+  // rather than hand-typed, so this stays honest if either one changes later.
+  function chapterIncome(chapter: number): number {
+    return ENCOUNTERS
+      .filter((enc) => enc.chapter === chapter)
+      .reduce((sum, enc) => sum + enc.enemyIds.reduce((s, id) => s + (getEnemy(id).marksReward ?? 0), 0), 0);
+  }
+  it('the top-tier gem the shop stocks each chapter costs roughly that chapter\'s own income - a real spend, not pocket change, but not a multi-chapter grind either', () => {
+    for (let chapter = 1; chapter <= 4; chapter++) {
+      const income = chapterIncome(chapter);
+      const price = shopPrice(shopLevelCap(chapter));
+      const ratio = price / income;
+      console.log(`ch${chapter}: income ${income}, top-tier price ${price}, ratio ${ratio.toFixed(2)}`);
+      expect(ratio).toBeGreaterThan(0.8);
+      expect(ratio).toBeLessThan(1.3);
+    }
   });
 });

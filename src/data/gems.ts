@@ -72,11 +72,12 @@ export function getGem(id: string): GemDef {
   return def;
 }
 
-// The shop: buying is meaningfully pricier than selling (roughly 2.5-3x a gem's sell value),
-// so selling off a gem you've outgrown funds only *part* of the next one - a real economy loop,
-// not a costless flip. Its stock ceiling rises with the story so an early chapter can't just
-// buy its way to a Radiant stone.
-const SHOP_PRICE = [15, 35, 75, 140, 240];
+// The shop: expensive enough that one purchase is a real, deliberate spend, not a rounding
+// error - each level's price is calibrated to roughly a full chapter's worth of Marks income
+// (see the "gem shop pricing" check in balance.test.ts), so a player who clears a chapter can
+// afford about one gem at that chapter's top available level, not several. Selling off a gem
+// you've outgrown still funds only part of the next one.
+const SHOP_PRICE = [25, 90, 150, 220, 300];
 
 export function shopPrice(level: number): number {
   return SHOP_PRICE[level - 1] ?? SHOP_PRICE[SHOP_PRICE.length - 1];
@@ -87,11 +88,13 @@ export function shopLevelCap(chapter: number): number {
   return Math.min(5, chapter + 1);
 }
 
-/** Every gem currently for sale, cheapest and lowest-level first within each kind. */
+/** Every gem currently for sale, cheapest and lowest-level first: all of level 1, then all of
+ * level 2, and so on, so the price climbs steadily down the list instead of resetting every
+ * time the kind changes. */
 export function shopInventory(chapter: number): GemDef[] {
   const cap = shopLevelCap(chapter);
   const kinds: GemKind[] = ['vitality', 'strength', 'instinct', 'speed', 'guard'];
-  return kinds.flatMap((kind) => Array.from({ length: cap }, (_, i) => GEMS[`${kind}${i + 1}`]));
+  return Array.from({ length: cap }, (_, i) => i + 1).flatMap((level) => kinds.map((kind) => GEMS[`${kind}${level}`]));
 }
 
 /** Sum of every equipped gem's bonus: flat attribute points, plus a capped % damage reduction. */

@@ -59,7 +59,7 @@ export function InventoryScreen() {
             })}
           </div>
           <div className="muted small" style={{ textAlign: 'center', margin: '0 0 8px' }}>
-            5 gem slots. Gems only ever come from what you kill - equip one, and it shows right on the necklace.
+            5 Slots available. Gain gems by defeating enemies or purchasing at the shop.
           </div>
           <div className="inv-slots">
             {necklace.map((itemId, slotIndex) => {

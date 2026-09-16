@@ -1,9 +1,9 @@
-import { useState, type DragEvent } from 'react';
+import { useState, type DragEvent, type ReactNode } from 'react';
 import { useGame } from '../state/gameStore';
 import { getAnimal } from '../data/animals';
 import { ACTION_BAR_SLOTS, MAX_RANK, RANK_COST, respecCost } from '../data/progression';
-import type { Attributes, SkillDef } from '../data/types';
-import { checkUnlock, getAnimalSkills, resolveCompanionSkills } from '../engine/skills';
+import type { AnimalDef, Attributes, SkillDef } from '../data/types';
+import { checkUnlock, getAnimalSkills } from '../engine/skills';
 import { maxHealth, maxSpirit } from '../engine/formulas';
 import { getPassive, pendingChoicePoints } from '../data/passives';
 import { SkillIcon } from '../components/Icon';
@@ -62,61 +62,19 @@ export function SkillScreen() {
   const setActionBarSlot = useGame((s) => s.setActionBarSlot);
   const resetSkillTree = useGame((s) => s.resetSkillTree);
   const choosePassive = useGame((s) => s.choosePassive);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [hoverId, setHoverId] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [dragOver, setDragOver] = useState<number | null>(null);
-  const [poolPick, setPoolPick] = useState<string | null>(null);
-  const [confirmingReset, setConfirmingReset] = useState(false);
-  const [resetMessage, setResetMessage] = useState<string | null>(null);
+  const unlockCompanionSkill = useGame((s) => s.unlockCompanionSkill);
+  const setCompanionActionBarSlot = useGame((s) => s.setCompanionActionBarSlot);
+  const resetCompanionSkillTree = useGame((s) => s.resetCompanionSkillTree);
+  const [tab, setTab] = useState<'mahery' | 'companion'>('mahery');
   if (!save) return null;
 
   const animal = getAnimal(save.animalId);
   const skills = getAnimalSkills(animal);
   const m = save.mahery;
-  const ranks = m.skillRanks;
-  const selected = skills.find((s) => s.id === selectedId) ?? null;
-  const keyOf = (def: SkillDef) => def.sharedKind ?? 'unique';
-  const unlocked = skills.filter((s) => (ranks[s.id] ?? 0) > 0);
-  const companionKit = resolveCompanionSkills(animal, ranks);
-  const pendingPassive = pendingChoicePoints(save.animalId, ranks, m.passives)[0] ?? null;
+  const c = save.companion;
+  const pendingPassive = pendingChoicePoints(save.animalId, m.skillRanks, m.passives)[0] ?? null;
   const onPickPassive = (passiveId: string) => {
-    if (!pendingPassive) return;
-    choosePassive(pendingPassive.id, passiveId);
-  };
-  const check = (def: SkillDef) => checkUnlock(def, ranks, m.level, m.abilityPoints, RANK_COST, skills);
-
-  const onUnlock = (def: SkillDef) => {
-    const err = unlockSkill(def.id);
-    setMessage(err ?? `${def.name} is now rank ${(ranks[def.id] ?? 0) + 1} of ${maxRankOf(def)}.`);
-  };
-
-  const cost = respecCost(m.level);
-  const onReset = () => {
-    if (!confirmingReset) { setConfirmingReset(true); setResetMessage(null); return; }
-    const err = resetSkillTree();
-    setConfirmingReset(false);
-    setResetMessage(err ?? 'Ability tree and attributes reset. Reassign from scratch.');
-    setSelectedId(null);
-  };
-
-  const onDrop = (e: DragEvent, slot: number) => {
-    e.preventDefault();
-    const id = e.dataTransfer.getData('text/skill');
-    setDragOver(null);
-    if (id) setActionBarSlot(slot, id);
-  };
-
-  const clickSlot = (i: number) => {
-    if (poolPick) { setActionBarSlot(i, poolPick); setPoolPick(null); return; }
-    if (m.actionBar[i]) setActionBarSlot(i, null);
-  };
-
-  // action bar ring geometry
-  const ringR = 78;
-  const slotPos = (i: number) => {
-    const a = (i / ACTION_BAR_SLOTS) * Math.PI * 2 - Math.PI / 2;
-    return { left: 110 + ringR * Math.cos(a) - 26, top: 110 + ringR * Math.sin(a) - 26 };
+    if (pendingPassive) choosePassive(pendingPassive.id, passiveId);
   };
 
   return (
@@ -138,166 +96,299 @@ export function SkillScreen() {
           </div>
         </div>
       )}
-      <div className="ability-screen">
-        {/* left: ability tree */}
-        <div className="steel ab-panel">
-          <div className="ab-title">Ability Tree</div>
-          <div className="tree-box">
-            <svg className="tree-links" viewBox="0 0 300 560" width="300" height="560">
-              {TREE_LINKS.map(([a, b]) => {
-                const pa = TREE_POS[a]; const pb = TREE_POS[b];
-                const lit = (ranks[skills.find((s) => keyOf(s) === b)!.id] ?? 0) > 0;
-                return <path key={`${a}-${b}`} d={linkPath(pa, pb)} fill="none" className={lit ? 'lit' : ''} />;
-              })}
-            </svg>
-            {skills.map((def) => {
-              const pos = TREE_POS[keyOf(def)];
-              const rank = ranks[def.id] ?? 0;
-              const c = check(def);
-              return (
-                <div key={def.id} className="tree-node-wrap" style={{ left: pos.x - 26, top: pos.y - 26 }}
-                  onMouseEnter={() => setHoverId(def.id)} onMouseLeave={() => setHoverId(null)}>
-                  <button
-                    className={`tree-node ${rank === 0 ? 'locked' : ''} ${selectedId === def.id ? 'on' : ''} ${c.ok ? 'can' : ''}`}
-                    onClick={() => { setSelectedId(def.id); setMessage(null); }}
-                    draggable={rank > 0}
-                    onDragStart={(e) => e.dataTransfer.setData('text/skill', def.id)}
-                    data-testid={`node-${def.id}`}
-                    aria-label={def.name}
-                  >
-                    <SkillIcon icon={def.icon} color={animal.color} size={52} dim={rank === 0} />
-                    <span className="node-rank">{rank}/{maxRankOf(def)}</span>
-                  </button>
-                  {hoverId === def.id && <SkillTooltip def={def} rank={rank} />}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* center: character + attributes */}
-        <div className="ab-center">
-          <div className="steel ab-panel char-panel">
-            <div className="char-name">Mahery</div>
-            <div className="char-class">Lvl. {m.level} {animal.name}-bonded</div>
-            <div className="char-points"><span>Ability Points:</span><b>{m.abilityPoints}</b></div>
-            <div className="char-points"><span>Attribute Points:</span><b>{m.attributePoints}</b></div>
-            {selected ? (
-              <div className="char-detail">
-                <div className="sel-head">
-                  <SkillIcon icon={selected.icon} color={animal.color} size={34} />
-                  <div>
-                    <div className="sel-name">{selected.name}</div>
-                    <div className="muted small">{(ranks[selected.id] ?? 0) === 0 ? 'Locked' : `Rank ${ranks[selected.id]} of ${maxRankOf(selected)}`}{selected.kind === 'unique' ? ' · Signature' : ''}</div>
+      <div className="ab-tabs">
+        <button className={`ab-tab ${tab === 'mahery' ? 'on' : ''}`} onClick={() => setTab('mahery')} data-testid="tab-mahery">
+          Mahery
+        </button>
+        <button className={`ab-tab ${tab === 'companion' ? 'on' : ''}`} onClick={() => setTab('companion')} data-testid="tab-companion">
+          {animal.name} Companion
+        </button>
+      </div>
+      {tab === 'mahery' ? (
+        <AbilityTreePanel
+          key="mahery"
+          animal={animal}
+          skills={skills}
+          charName="Mahery"
+          charClass={`Lvl. ${m.level} ${animal.name}-bonded`}
+          level={m.level}
+          abilityPoints={m.abilityPoints}
+          ranks={m.skillRanks}
+          actionBar={m.actionBar}
+          onUnlock={unlockSkill}
+          onSetBarSlot={setActionBarSlot}
+          extraCharInfo={<div className="char-points"><span>Attribute Points:</span><b>{m.attributePoints}</b></div>}
+          sidePanels={
+            <>
+              <div className="steel ab-panel attr-panel">
+                <div className="ab-title">Your Attributes</div>
+                {ATTRS.map((a) => (
+                  <div className="attr-line" key={a.key}>
+                    <button className="attr-plus" style={{ background: a.color }} disabled={m.attributePoints <= 0} onClick={() => spendAttribute(a.key)} data-testid={`attr-${a.key}`}>+</button>
+                    <span className="attr-name" style={{ color: a.color }}>{a.label}:</span>
+                    <span className="attr-note muted small">{a.note}</span>
+                    <span className="attr-val">{m.attributes[a.key]}</span>
                   </div>
-                </div>
-                <div className="muted small sel-flavor">{selected.flavor}</div>
-                <SkillDetail def={selected} rank={ranks[selected.id] ?? 0} all={skills} />
-                <div className="row" style={{ marginTop: 8 }}>
-                  <button className="btn btn-primary" disabled={!check(selected).ok} onClick={() => onUnlock(selected)} data-testid="unlock-btn">
-                    {(ranks[selected.id] ?? 0) === 0 ? `Learn (${RANK_COST} AP)` : (ranks[selected.id] ?? 0) >= maxRankOf(selected) ? 'Max rank' : `Rank up (${RANK_COST} AP)`}
-                  </button>
-                  {!check(selected).ok && <span className="muted small">{check(selected).reason}</span>}
-                </div>
-                {message && <div className="hint" style={{ marginTop: 6 }}>{message}</div>}
+                ))}
+                <div className="muted small" style={{ marginTop: 6 }}>Health {maxHealth(m.attributes)} · Spirit {maxSpirit(m.attributes)}</div>
+                {m.passives.length > 0 && (
+                  <div className="muted small" style={{ marginTop: 8 }}>
+                    <b>Passives:</b> {m.passives.map((id) => getPassive(id)?.name ?? id).join(', ')}
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="char-tip">
-                You can learn new skills with your Ability Points. Hold your mouse over an ability for more information, click it to select.
-                <div className="muted small" style={{ marginTop: 8 }}>Tip: drag an unlocked ability from the Ability Pool onto the Combat Action Bar, or click one and then click a slot.</div>
-              </div>
-            )}
-          </div>
-          <div className="steel ab-panel attr-panel">
-            <div className="ab-title">Your Attributes</div>
-            {ATTRS.map((a) => (
-              <div className="attr-line" key={a.key}>
-                <button className="attr-plus" style={{ background: a.color }} disabled={m.attributePoints <= 0} onClick={() => spendAttribute(a.key)} data-testid={`attr-${a.key}`}>+</button>
-                <span className="attr-name" style={{ color: a.color }}>{a.label}:</span>
-                <span className="attr-note muted small">{a.note}</span>
-                <span className="attr-val">{m.attributes[a.key]}</span>
-              </div>
-            ))}
-            <div className="muted small" style={{ marginTop: 6 }}>Health {maxHealth(m.attributes)} · Spirit {maxSpirit(m.attributes)}</div>
-            {m.passives.length > 0 && (
-              <div className="muted small" style={{ marginTop: 8 }}>
-                <b>Passives:</b> {m.passives.map((id) => getPassive(id)?.name ?? id).join(', ')}
-              </div>
-            )}
-          </div>
-          <div className="steel ab-panel">
-            <div className="ab-title">Reset Build</div>
-            <div className="muted small" style={{ marginBottom: 8 }}>
-              Refund every Ability and Attribute Point spent (abilities back to none but the free
-              Basic Strike, attributes back to base) and reassign from scratch.
-            </div>
-            {confirmingReset ? (
-              <div className="stack" style={{ gap: 6 }}>
-                <div className="small" style={{ color: 'var(--bad)' }}>Reset everything for {cost} Marks? This cannot be undone.</div>
-                <div className="row">
-                  <button className="btn btn-primary" onClick={onReset} data-testid="confirm-reset-btn">Confirm Reset</button>
-                  <button className="btn btn-sm" onClick={() => setConfirmingReset(false)}>Cancel</button>
+              <ResetPanel
+                title="Reset Build"
+                description="Refund every Ability and Attribute Point spent (abilities back to none but the free Basic Strike, attributes back to base) and reassign from scratch."
+                cost={respecCost(m.level)}
+                marks={m.marks}
+                onReset={resetSkillTree}
+              />
+            </>
+          }
+        />
+      ) : (
+        <AbilityTreePanel
+          key="companion"
+          animal={animal}
+          skills={skills}
+          charName={`${animal.name} Companion`}
+          charClass={`Lvl. ${m.level} · fights at Mahery's side`}
+          level={m.level}
+          abilityPoints={c.abilityPoints}
+          ranks={c.skillRanks}
+          actionBar={c.actionBar}
+          onUnlock={unlockCompanionSkill}
+          onSetBarSlot={setCompanionActionBarSlot}
+          sidePanels={
+            <>
+              <div className="steel ab-panel attr-panel">
+                <div className="ab-title">About the Companion</div>
+                <div className="muted small">
+                  {animal.name} fights at Mahery's side every round. Its Health, Strength, Vitality
+                  and Spirit scale automatically off Mahery's own as he levels - only which moves it
+                  knows, and which of them it carries into battle, is your call.
                 </div>
               </div>
-            ) : (
-              <button className="btn" disabled={save.mahery.marks < cost} onClick={onReset} data-testid="reset-tree-btn">
-                Reset ({cost} Marks)
-              </button>
-            )}
-            {resetMessage && <div className="hint" style={{ marginTop: 6 }}>{resetMessage}</div>}
+              <ResetPanel
+                title="Reset Companion Build"
+                description="Refund every companion Ability Point spent and clear its action bar back to just the free Basic Strike, so you can reassign from scratch."
+                cost={respecCost(m.level)}
+                marks={m.marks}
+                onReset={resetCompanionSkillTree}
+              />
+            </>
+          }
+        />
+      )}
+      <MenuStrip current="skills" />
+    </div>
+  );
+}
+
+function ResetPanel({ title, description, cost, marks, onReset }: {
+  title: string; description: string; cost: number; marks: number; onReset: () => string | null;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const onClick = () => {
+    if (!confirming) { setConfirming(true); setMessage(null); return; }
+    const err = onReset();
+    setConfirming(false);
+    setMessage(err ?? 'Reset. Reassign from scratch.');
+  };
+  return (
+    <div className="steel ab-panel">
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <div className="ab-title">{title}</div>
+        <span className="small muted">Marks: <span className="marks-num">{marks}</span></span>
+      </div>
+      <div className="muted small" style={{ marginBottom: 8 }}>{description}</div>
+      {confirming ? (
+        <div className="stack" style={{ gap: 6 }}>
+          <div className="small" style={{ color: 'var(--bad)' }}>Reset everything for {cost} Marks? This cannot be undone.</div>
+          <div className="row">
+            <button className="btn btn-primary" onClick={onClick} data-testid="confirm-reset-btn">Confirm Reset</button>
+            <button className="btn btn-sm" onClick={() => setConfirming(false)}>Cancel</button>
           </div>
         </div>
+      ) : (
+        <button className="btn" disabled={marks < cost} onClick={onClick} data-testid="reset-tree-btn">
+          Reset ({cost} Marks)
+        </button>
+      )}
+      {message && <div className="hint" style={{ marginTop: 6 }}>{message}</div>}
+    </div>
+  );
+}
 
-        {/* right: action bar ring + ability pool */}
-        <div className="steel ab-panel">
-          <div className="ab-title">Combat Action Bar</div>
-          <div className="ring">
-            {m.actionBar.slice(0, ACTION_BAR_SLOTS).map((id, i) => {
-              const def = id ? skills.find((s) => s.id === id) : null;
-              return (
-                <div
-                  key={i}
-                  className={`ring-slot ${dragOver === i ? 'over' : ''} ${poolPick ? 'awaiting' : ''}`}
-                  style={slotPos(i)}
-                  onDragOver={(e) => { e.preventDefault(); setDragOver(i); }}
-                  onDragLeave={() => setDragOver(null)}
-                  onDrop={(e) => onDrop(e, i)}
-                  onClick={() => clickSlot(i)}
-                  title={def ? `${def.name} (click to clear)` : poolPick ? 'Click to place here' : `Slot ${i + 1}`}
-                  data-testid={`bar-slot-${i}`}
-                >
-                  {def ? <SkillIcon icon={def.icon} color={animal.color} size={48} /> : <span className="ring-n">{i + 1}</span>}
-                </div>
-              );
+/** The tree + mini character panel + action bar + ability pool, reused for both Mahery's own
+ * build and the companion's (see sharedSkills.ts - same 12-move pool per animal, independently
+ * unlocked and equipped for each fighter). Owns its own selection/drag state so switching tabs
+ * never leaves a stale selection pointing at the other fighter's ranks. */
+function AbilityTreePanel({
+  animal, skills, charName, charClass, level, abilityPoints, ranks, actionBar, onUnlock: unlock, onSetBarSlot, extraCharInfo, sidePanels,
+}: {
+  animal: AnimalDef; skills: SkillDef[]; charName: string; charClass: string; level: number; abilityPoints: number;
+  ranks: Record<string, number>; actionBar: (string | null)[];
+  onUnlock: (skillId: string) => string | null;
+  onSetBarSlot: (slot: number, id: string | null) => void;
+  extraCharInfo?: ReactNode;
+  sidePanels: ReactNode;
+}) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [hoverId, setHoverId] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
+  const [poolPick, setPoolPick] = useState<string | null>(null);
+
+  const selected = skills.find((s) => s.id === selectedId) ?? null;
+  const keyOf = (def: SkillDef) => def.sharedKind ?? 'unique';
+  const unlocked = skills.filter((s) => (ranks[s.id] ?? 0) > 0);
+  const check = (def: SkillDef) => checkUnlock(def, ranks, level, abilityPoints, RANK_COST, skills);
+
+  const onUnlock = (def: SkillDef) => {
+    const err = unlock(def.id);
+    setMessage(err ?? `${def.name} is now rank ${(ranks[def.id] ?? 0) + 1} of ${maxRankOf(def)}.`);
+  };
+
+  const onDrop = (e: DragEvent, slot: number) => {
+    e.preventDefault();
+    const id = e.dataTransfer.getData('text/skill');
+    setDragOver(null);
+    if (id) onSetBarSlot(slot, id);
+  };
+
+  const clickSlot = (i: number) => {
+    if (poolPick) { onSetBarSlot(i, poolPick); setPoolPick(null); return; }
+    if (actionBar[i]) onSetBarSlot(i, null);
+  };
+
+  // action bar ring geometry
+  const ringR = 78;
+  const slotPos = (i: number) => {
+    const a = (i / ACTION_BAR_SLOTS) * Math.PI * 2 - Math.PI / 2;
+    return { left: 110 + ringR * Math.cos(a) - 26, top: 110 + ringR * Math.sin(a) - 26 };
+  };
+
+  return (
+    <div className="ability-screen">
+      {/* left: ability tree */}
+      <div className="steel ab-panel">
+        <div className="ab-title">Ability Tree</div>
+        <div className="tree-box">
+          <svg className="tree-links" viewBox="0 0 300 560" width="300" height="560">
+            {TREE_LINKS.map(([a, b]) => {
+              const pa = TREE_POS[a]; const pb = TREE_POS[b];
+              const lit = (ranks[skills.find((s) => keyOf(s) === b)!.id] ?? 0) > 0;
+              return <path key={`${a}-${b}`} d={linkPath(pa, pb)} fill="none" className={lit ? 'lit' : ''} />;
             })}
-            <div className="ring-center muted small">{m.actionBar.filter(Boolean).length}/{ACTION_BAR_SLOTS}</div>
-          </div>
-          <div className="ab-title">Ability Pool</div>
-          <div className="pool">
-            {unlocked.length === 0 && <div className="muted small">Learn an ability to see it here.</div>}
-            {unlocked.map((def) => (
-              <div
-                key={def.id}
-                className={`pool-item ${poolPick === def.id ? 'on' : ''} ${m.actionBar.includes(def.id) ? 'equipped' : ''}`}
-                draggable
-                onDragStart={(e) => e.dataTransfer.setData('text/skill', def.id)}
-                onClick={() => setPoolPick(poolPick === def.id ? null : def.id)}
-                title={m.actionBar.includes(def.id) ? `${def.name} is on the bar` : `Drag ${def.name} to a slot, or click then pick a slot`}
-                data-testid={`pool-${def.id}`}
-              >
-                <SkillIcon icon={def.icon} color={animal.color} size={34} />
-                <span className="pool-name">{def.name}</span>
-                <span className="pool-rank muted small">{ranks[def.id]}/{maxRankOf(def)}</span>
+          </svg>
+          {skills.map((def) => {
+            const pos = TREE_POS[keyOf(def)];
+            const rank = ranks[def.id] ?? 0;
+            const c = check(def);
+            return (
+              <div key={def.id} className="tree-node-wrap" style={{ left: pos.x - 26, top: pos.y - 26 }}
+                onMouseEnter={() => setHoverId(def.id)} onMouseLeave={() => setHoverId(null)}>
+                <button
+                  className={`tree-node ${rank === 0 ? 'locked' : ''} ${selectedId === def.id ? 'on' : ''} ${c.ok ? 'can' : ''}`}
+                  onClick={() => { setSelectedId(def.id); setMessage(null); }}
+                  draggable={rank > 0}
+                  onDragStart={(e) => e.dataTransfer.setData('text/skill', def.id)}
+                  data-testid={`node-${def.id}`}
+                  aria-label={def.name}
+                >
+                  <SkillIcon icon={def.icon} color={animal.color} size={52} dim={rank === 0} />
+                  <span className="node-rank">{rank}/{maxRankOf(def)}</span>
+                </button>
+                {hoverId === def.id && <SkillTooltip def={def} rank={rank} />}
               </div>
-            ))}
-          </div>
-          <div className="ab-title">{animal.name} companion</div>
-          <ul className="companion-kit small muted">
-            {companionKit.map((k) => <li key={k.id}>{k.name} (rank {k.rank})</li>)}
-          </ul>
+            );
+          })}
         </div>
       </div>
-      <MenuStrip current="skills" />
+
+      {/* center: character + side panels (attributes/passives or companion info, reset) */}
+      <div className="ab-center">
+        <div className="steel ab-panel char-panel">
+          <div className="char-name">{charName}</div>
+          <div className="char-class">{charClass}</div>
+          <div className="char-points"><span>Ability Points:</span><b>{abilityPoints}</b></div>
+          {extraCharInfo}
+          {selected ? (
+            <div className="char-detail">
+              <div className="sel-head">
+                <SkillIcon icon={selected.icon} color={animal.color} size={34} />
+                <div>
+                  <div className="sel-name">{selected.name}</div>
+                  <div className="muted small">{(ranks[selected.id] ?? 0) === 0 ? 'Locked' : `Rank ${ranks[selected.id]} of ${maxRankOf(selected)}`}{selected.kind === 'unique' ? ' · Signature' : ''}</div>
+                </div>
+              </div>
+              <div className="muted small sel-flavor">{selected.flavor}</div>
+              <SkillDetail def={selected} rank={ranks[selected.id] ?? 0} all={skills} />
+              <div className="row" style={{ marginTop: 8 }}>
+                <button className="btn btn-primary" disabled={!check(selected).ok} onClick={() => onUnlock(selected)} data-testid="unlock-btn">
+                  {(ranks[selected.id] ?? 0) === 0 ? `Learn (${RANK_COST} AP)` : (ranks[selected.id] ?? 0) >= maxRankOf(selected) ? 'Max rank' : `Rank up (${RANK_COST} AP)`}
+                </button>
+                {!check(selected).ok && <span className="muted small">{check(selected).reason}</span>}
+              </div>
+              {message && <div className="hint" style={{ marginTop: 6 }}>{message}</div>}
+            </div>
+          ) : (
+            <div className="char-tip">
+              You can learn new skills with Ability Points. Hold your mouse over an ability for more information, click it to select.
+              <div className="muted small" style={{ marginTop: 8 }}>Tip: drag an unlocked ability from the Ability Pool onto the Combat Action Bar, or click one and then click a slot.</div>
+            </div>
+          )}
+        </div>
+        {sidePanels}
+      </div>
+
+      {/* right: action bar ring + ability pool */}
+      <div className="steel ab-panel">
+        <div className="ab-title">Combat Action Bar</div>
+        <div className="ring">
+          {actionBar.slice(0, ACTION_BAR_SLOTS).map((id, i) => {
+            const def = id ? skills.find((s) => s.id === id) : null;
+            return (
+              <div
+                key={i}
+                className={`ring-slot ${dragOver === i ? 'over' : ''} ${poolPick ? 'awaiting' : ''}`}
+                style={slotPos(i)}
+                onDragOver={(e) => { e.preventDefault(); setDragOver(i); }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={(e) => onDrop(e, i)}
+                onClick={() => clickSlot(i)}
+                title={def ? `${def.name} (click to clear)` : poolPick ? 'Click to place here' : `Slot ${i + 1}`}
+                data-testid={`bar-slot-${i}`}
+              >
+                {def ? <SkillIcon icon={def.icon} color={animal.color} size={48} /> : <span className="ring-n">{i + 1}</span>}
+              </div>
+            );
+          })}
+          <div className="ring-center muted small">{actionBar.filter(Boolean).length}/{ACTION_BAR_SLOTS}</div>
+        </div>
+        <div className="ab-title">Ability Pool</div>
+        <div className="pool">
+          {unlocked.length === 0 && <div className="muted small">Learn an ability to see it here.</div>}
+          {unlocked.map((def) => (
+            <div
+              key={def.id}
+              className={`pool-item ${poolPick === def.id ? 'on' : ''} ${actionBar.includes(def.id) ? 'equipped' : ''}`}
+              draggable
+              onDragStart={(e) => e.dataTransfer.setData('text/skill', def.id)}
+              onClick={() => setPoolPick(poolPick === def.id ? null : def.id)}
+              title={actionBar.includes(def.id) ? `${def.name} is on the bar` : `Drag ${def.name} to a slot, or click then pick a slot`}
+              data-testid={`pool-${def.id}`}
+            >
+              <SkillIcon icon={def.icon} color={animal.color} size={34} />
+              <span className="pool-name">{def.name}</span>
+              <span className="pool-rank muted small">{ranks[def.id]}/{maxRankOf(def)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

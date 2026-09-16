@@ -1,11 +1,20 @@
-import { useState } from 'react';
+import { useGame, type Screen } from '../state/gameStore';
+import { useUiStore } from '../state/uiStore';
 import { useAudioSettings } from '../state/audioStore';
 
-/** Gear icon rendered once at the app root (App.tsx), so it - and the settings it opens - are
- * reachable from every screen without leaving whatever you're doing (mid-battle included). The
- * panel itself is a plain overlay, not a routed screen, for the same reason. */
+/** Screens that render their own MenuStrip (see MenuStrip.tsx) already have a Settings button
+ * in it - the floating gear here only needs to cover everywhere else (title, story, bond,
+ * battle, results, ending), so Settings is always one click away no matter what's on screen. */
+const HAS_MENU_STRIP: Screen[] = ['hub', 'inventory', 'shop', 'skills'];
+
+/** Gear icon rendered once at the app root (App.tsx). The overlay it opens is shared with the
+ * MenuStrip's own Settings button (see uiStore) - one settingsOpen flag, two possible triggers,
+ * so the panel itself is a plain overlay, not a routed screen, reachable from anywhere. */
 export function SettingsPanel() {
-  const [open, setOpen] = useState(false);
+  const screen = useGame((s) => s.screen);
+  const open = useUiStore((s) => s.settingsOpen);
+  const openSettings = useUiStore((s) => s.openSettings);
+  const closeSettings = useUiStore((s) => s.closeSettings);
   const volume = useAudioSettings((s) => s.volume);
   const muted = useAudioSettings((s) => s.muted);
   const setVolume = useAudioSettings((s) => s.setVolume);
@@ -13,16 +22,18 @@ export function SettingsPanel() {
 
   return (
     <>
-      <button
-        className="settings-toggle"
-        onClick={() => setOpen(true)}
-        title="Settings"
-        aria-label="Settings"
-      >
-        ⚙
-      </button>
+      {!HAS_MENU_STRIP.includes(screen) && (
+        <button
+          className="settings-toggle"
+          onClick={openSettings}
+          title="Settings"
+          aria-label="Settings"
+        >
+          ⚙
+        </button>
+      )}
       {open && (
-        <div className="settings-overlay" onClick={() => setOpen(false)}>
+        <div className="settings-overlay" onClick={closeSettings}>
           <div className="steel settings-panel" onClick={(e) => e.stopPropagation()}>
             <div className="ab-title">Settings</div>
 
@@ -58,7 +69,7 @@ export function SettingsPanel() {
               </button>
             </div>
 
-            <button className="btn btn-primary" style={{ marginTop: 4, width: '100%' }} onClick={() => setOpen(false)}>
+            <button className="btn btn-primary" style={{ marginTop: 4, width: '100%' }} onClick={closeSettings}>
               Close
             </button>
           </div>

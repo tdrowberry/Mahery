@@ -7,7 +7,7 @@ import { getGem, MAX_GUARD_REDUCTION, necklaceBonuses, shopPrice } from '../data
 import { pendingChoicePoints, passiveBonuses } from '../data/passives';
 import { getScene, PROLOGUE_WAKE } from '../data/story';
 import {
-  ACTION_BAR_SLOTS, BASE_ATTRIBUTES, gainXp, MAX_RANK, RANK_COST, respecCost,
+  ACTION_BAR_SLOTS, BASE_ATTRIBUTES, companionAbilityPointsForLevels, gainXp, MAX_RANK, RANK_COST, respecCost,
 } from '../data/progression';
 import { checkUnlock, findSkill, getAnimalSkills, sharedSkillId } from '../engine/skills';
 import {
@@ -78,6 +78,15 @@ interface GameState {
   resetSkillTree: () => string | null;
   /** locks in one of a reached choice point's two passive perks, permanently (until a respec) */
   choosePassive: (choiceId: string, passiveId: string) => string | null;
+
+  // companion progression - its own tree and action bar, same skill pool as Mahery's animal but
+  // unlocked and equipped independently. No attributes here: those still scale automatically
+  // off Mahery's own (see COMPANION_RATIOS), only its moveset is the player's call.
+  unlockCompanionSkill: (skillId: string) => string | null;
+  setCompanionActionBarSlot: (slotIndex: number, skillId: string | null) => void;
+  /** Refunds every spent companion Ability Point (for a Marks fee) and clears its action bar
+   * back to just the free Basic Strike. */
+  resetCompanionSkillTree: () => string | null;
 
   // necklace gems
   /** equips into the first empty necklace slot; no-op if the necklace is already full */
@@ -304,6 +313,57 @@ export const useGame = create<GameState>((set, get) => ({
     set({ save: persist(get, { ...save, mahery: { ...save.mahery, actionBar } }) });
   },
 
+  unlockCompanionSkill: (skillId) => {
+    const { save } = get();
+    if (!save) return 'No save loaded.';
+    const animal = getAnimal(save.animalId);
+    const all = getAnimalSkills(animal);
+    const def = findSkill(animal, skillId);
+    if (!def) return 'Unknown skill.';
+    const check = checkUnlock(def, save.companion.skillRanks, save.mahery.level, save.companion.abilityPoints, RANK_COST, all);
+    if (!check.ok) return check.reason ?? 'Cannot unlock.';
+    const skillRanks = { ...save.companion.skillRanks, [skillId]: Math.min(MAX_RANK, check.nextRank) };
+    const next: SaveFile = {
+      ...save,
+      companion: { ...save.companion, skillRanks, abilityPoints: save.companion.abilityPoints - RANK_COST },
+    };
+    set({ save: persist(get, next) });
+    return null;
+  },
+
+  setCompanionActionBarSlot: (slotIndex, skillId) => {
+    const { save } = get();
+    if (!save) return;
+    const actionBar = [...save.companion.actionBar];
+    if (skillId) {
+      if ((save.companion.skillRanks[skillId] ?? 0) < 1) return;
+      const existing = actionBar.indexOf(skillId);
+      if (existing >= 0 && existing !== slotIndex) actionBar[existing] = actionBar[slotIndex];
+    }
+    actionBar[slotIndex] = skillId;
+    set({ save: persist(get, { ...save, companion: { ...save.companion, actionBar } }) });
+  },
+
+  resetCompanionSkillTree: () => {
+    const { save } = get();
+    if (!save) return 'No save loaded.';
+    const cost = respecCost(save.mahery.level);
+    if (save.mahery.marks < cost) return `Not enough Marks (needs ${cost}).`;
+    const basic = sharedSkillId(save.animalId, 'basicStrike');
+    const ranksSpent = Object.values(save.companion.skillRanks).reduce((sum, r) => sum + r, 0) - 1;
+    const next: SaveFile = {
+      ...save,
+      mahery: { ...save.mahery, marks: save.mahery.marks - cost },
+      companion: {
+        abilityPoints: save.companion.abilityPoints + Math.max(0, ranksSpent) * RANK_COST,
+        skillRanks: { [basic]: 1 },
+        actionBar: [basic, ...Array(ACTION_BAR_SLOTS - 1).fill(null)],
+      },
+    };
+    set({ save: persist(get, next) });
+    return null;
+  },
+
   equipGem: (itemId) => {
     const { save } = get();
     if (!save) return;
@@ -456,6 +516,10 @@ export const useGame = create<GameState>((set, get) => ({
       const next: SaveFile = {
         ...save,
         mahery: { ...save.mahery, ...lv, marks: save.mahery.marks + marksGained },
+        companion: {
+          ...save.companion,
+          abilityPoints: save.companion.abilityPoints + companionAbilityPointsForLevels(save.mahery.level, levelsGained),
+        },
         inventory: { ...save.inventory, items: [...save.inventory.items, ...droppedItems] },
       };
       // roamingEncounter stays in state until closeResults - the Results screen still needs
@@ -493,6 +557,10 @@ export const useGame = create<GameState>((set, get) => ({
     const next: SaveFile = {
       ...save,
       mahery: { ...save.mahery, ...lv, marks: save.mahery.marks + marksGained },
+      companion: {
+        ...save.companion,
+        abilityPoints: save.companion.abilityPoints + companionAbilityPointsForLevels(save.mahery.level, levelsGained),
+      },
       story,
       inventory: { ...save.inventory, items: [...save.inventory.items, ...droppedItems] },
     };
@@ -576,6 +644,7 @@ function beginBattle(
       evasionBonus: passive.evasionBonus,
       spiritRegenBonus: passive.spiritRegenBonus,
     },
+    companion: { skillRanks: save.companion.skillRanks, actionBar: save.companion.actionBar },
     enemies: enc.enemyIds.map(getEnemy),
     seed: Date.now() % 2147483647,
   });

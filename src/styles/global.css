@@ -136,6 +136,10 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .stack { display: flex; flex-direction: column; gap: 8px; }
 
+select {
+  background: var(--steel-2); color: var(--text); border: 1px solid var(--steel-hi);
+  border-radius: 5px; padding: 3px 6px; font: inherit;
+}
 .btn {
   background: linear-gradient(180deg, #464e58, #2b3138);
   color: var(--text);
@@ -188,17 +192,12 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .sprite.targetable:hover { transform: scale(1.08); }
 .sprite.targetable:hover svg, .sprite.targetable:hover .photo-sprite { filter: drop-shadow(0 0 3px var(--bad)) drop-shadow(0 0 16px rgba(224,107,92,0.8)); }
 /* Kin enemies (the old camp, the old chief) render as a bigger version of the player's own
-   hybrid photo (see Unit.corrupted in engine/combat.ts) - two small hot points instead of one
-   soft wash reads as actual glowing eyes rather than a smear across the face. */
-.sprite.corrupted-kin::before, .sprite.corrupted-kin::after {
-  content: ''; position: absolute; top: 10.5%; width: 5%; height: 3.2%;
-  background: radial-gradient(circle, #fff 0%, #ff3b30 30%, #d40000 65%, transparent 100%);
-  border-radius: 50%;
-  box-shadow: 0 0 4px 2px rgba(255,40,20,0.95), 0 0 12px 5px rgba(255,0,0,0.65);
-  pointer-events: none;
+   hybrid photo (see Unit.corrupted in engine/combat.ts) - a red aura around the whole figure
+   reads as "wrong" on every hybrid photo; two fixed-position dots meant to land on the eyes
+   didn't, since each animal's photo has its face in a different spot. */
+.sprite.corrupted-kin svg, .sprite.corrupted-kin .photo-sprite {
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)) drop-shadow(0 0 8px #ff2418) drop-shadow(0 0 18px #ff2418) drop-shadow(0 0 34px rgba(255,0,0,0.9));
 }
-.sprite.corrupted-kin::before { left: 39%; }
-.sprite.corrupted-kin::after { right: 39%; }
 .sprite-label { font-size: 12px; color: #ffb3a8; font-weight: 600; text-shadow: 0 1px 3px #000; }
 
 /* Real-photo sprites (Mahery, his hybrid forms, companions, and the two enemy lines): 2 or 3
@@ -536,9 +535,11 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .round-btn {
   width: 56px; height: 56px; border-radius: 50%; border: 3px solid #000; background: radial-gradient(circle at 40% 35%, #3a4a6a, #101826 70%);
   box-shadow: inset 0 0 0 2px #2a3a5a, 0 0 10px rgba(80,140,255,0.35); color: #cfe0ff; font-size: 22px; display: flex; align-items: center; justify-content: center;
+  overflow: hidden; padding: 0;
 }
 .round-btn.on { box-shadow: inset 0 0 0 2px #7fb0ff, 0 0 16px rgba(120,170,255,0.7); }
 .round-btn:hover:not(:disabled) { filter: brightness(1.2); }
+.round-btn-img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .mini-btn { width: 22px; height: 22px; border-radius: 4px; border: 1px solid #000; background: #2a2f36; color: #d8dee6; font-size: 11px; padding: 0; }
 .mini-btn.danger { background: #5a1a12; color: #ffd7d0; }
 .ctl-right { display: flex; flex-direction: column; gap: 4px; }
@@ -637,7 +638,16 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .pool-item.on { box-shadow: inset 0 0 0 1px var(--good); }
 .pool-item.equipped .pool-name { color: var(--accent-2); }
 .pool-name { flex: 1; font-size: 13px; }
-.companion-kit { margin: 0; padding-left: 18px; }
+
+/* Mahery / Companion switcher atop the Abilities screen - each tab is its own full tree+bar+pool
+ * (see AbilityTreePanel in SkillScreen.tsx), so only one renders at a time. */
+.ab-tabs { display: flex; gap: 8px; }
+.ab-tab {
+  flex: 1; background: linear-gradient(180deg, #33393f, #202429); color: var(--muted);
+  border: 2px solid var(--steel-lo); border-radius: 8px; padding: 8px; font-weight: 700; letter-spacing: 0.3px;
+}
+.ab-tab.on { color: var(--accent-2); box-shadow: inset 0 0 0 2px var(--accent); background: linear-gradient(180deg, #3d434c, var(--steel)); }
+.ab-tab:hover:not(.on) { color: var(--text); }
 
 /* ---------- menu strip ---------- */
 .menu-strip { display: grid; grid-template-columns: 1fr 110px 1fr; gap: 8px; margin-top: auto; }

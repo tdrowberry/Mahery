@@ -34,6 +34,26 @@ export function abilityPointsForLevelUp(newLevel: number): number {
   return newLevel <= 4 ? 1 : 2;
 }
 
+/** Total Ability Points a character would have accumulated by `level` - starting points plus
+ * every level-up's grant. Used both for a fresh save and to backfill the companion's own
+ * Ability Point pool when an older save migrates in without one (see saveFormat.ts): the
+ * companion's tree is new, but its owner isn't, so it starts with the same budget Mahery would
+ * have at that level rather than from zero. */
+export function totalAbilityPointsAtLevel(level: number): number {
+  let total = STARTING_ABILITY_POINTS;
+  for (let l = 2; l <= level; l++) total += abilityPointsForLevelUp(l);
+  return total;
+}
+
+/** Ability Points the companion earns for the same level-ups Mahery just gained - it follows
+ * the identical per-level schedule, just tracked as its own separate pool (see the companion
+ * action bar). `oldLevel` is the level before this gain. */
+export function companionAbilityPointsForLevels(oldLevel: number, levelsGained: number): number {
+  let total = 0;
+  for (let l = oldLevel + 1; l <= oldLevel + levelsGained; l++) total += abilityPointsForLevelUp(l);
+  return total;
+}
+
 /** Marks cost to reset the ability tree and attributes back to zero and reassign from scratch.
  * Scales with level - the more you've built up, the more it costs to tear down. */
 export const respecCost = (level: number) => 40 + level * 15;

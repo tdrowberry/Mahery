@@ -7,7 +7,7 @@ import { createRng } from '../rng';
 import {
   advance, createBattle, effectiveAttributes, getStatus, hasStatus, playerSelectUnit, playerUseSkill, playerWait, type BattleState,
 } from '../combat';
-import { gainXp, xpToNextLevel } from '../../data/progression';
+import { gainXp, totalAbilityPointsAtLevel, xpToNextLevel } from '../../data/progression';
 import { checkUnlock, getAnimalSkills, resolveCompanionSkills } from '../skills';
 import { createNewSave, migrate } from '../../state/saveFormat';
 
@@ -375,5 +375,19 @@ describe('progression', () => {
     expect(migrate(JSON.parse(JSON.stringify(save)))).toEqual(save);
     expect(migrate({ version: 99 })).toBeNull();
     expect(migrate('junk')).toBeNull();
+  });
+  it('a v3 save (no companion tree yet) migrates in with a fresh, unspent companion build', () => {
+    const fresh = createNewSave('bear');
+    // Strip back to the v3 shape a real old save would have had: no `companion` at all, and a
+    // level/skillRanks that reflect a run already well underway - the migration should backfill
+    // a companion budget that matches that progress, not start it at zero.
+    const { companion: _drop, ...v3Shape } = fresh as unknown as { companion: unknown } & Record<string, unknown>;
+    const v3 = { ...v3Shape, version: 3, mahery: { ...fresh.mahery, level: 9 } };
+    const migrated = migrate(v3);
+    expect(migrated).not.toBeNull();
+    expect(migrated!.companion.abilityPoints).toBe(totalAbilityPointsAtLevel(9));
+    expect(migrated!.companion.skillRanks).toEqual({ [ids.basicStrike]: 1 });
+    expect(migrated!.companion.actionBar[0]).toBe(ids.basicStrike);
+    expect(migrated!.companion.actionBar).toHaveLength(6);
   });
 });

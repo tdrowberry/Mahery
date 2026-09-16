@@ -3,13 +3,14 @@ import { getAnimal } from '../data/animals';
 import { NECKLACE_SLOTS } from '../data/gems';
 import {
   ACTION_BAR_SLOTS, BASE_ATTRIBUTES, STARTING_ABILITY_POINTS, STARTING_ATTRIBUTE_POINTS,
+  totalAbilityPointsAtLevel,
 } from '../data/progression';
 import { sharedSkillId } from '../engine/skills';
 
 // Save file format. Bump SAVE_VERSION and extend migrate() when the shape changes.
 // Battle state is never saved.
 
-export const SAVE_VERSION = 3 as const;
+export const SAVE_VERSION = 4 as const;
 export const SAVE_SLOTS = [1, 2, 3] as const;
 export type SlotNumber = (typeof SAVE_SLOTS)[number];
 
@@ -92,7 +93,44 @@ export interface SaveFileV3 {
   };
 }
 
-export type SaveFile = SaveFileV3;
+export interface SaveFileV4 {
+  version: 4;
+  savedAt: string;
+  animalId: AnimalId;
+  mahery: {
+    level: number;
+    xp: number;
+    attributes: Attributes;               // raw allocated stats, before gem/passive bonuses
+    abilityPoints: number;
+    attributePoints: number;
+    marks: number;                        // trade currency, from victories and selling gems
+    skillRanks: Record<string, number>;   // 'bear.basicStrike' -> 1..3, absent = locked
+    actionBar: (string | null)[];         // length ACTION_BAR_SLOTS
+    passives: string[];                   // chosen passive ids, one per reached choice point
+  };
+  /** The bonded animal's own tree, independent of Mahery's - same skill pool (it's the same
+   * animal), separately unlocked and separately equipped, so the two fighters play differently
+   * even though they draw from the same 12 moves. No attributes here on purpose: those still
+   * scale automatically off Mahery's own (see COMPANION_RATIOS in data/companion.ts) - only
+   * which moves it knows and which 6 it's actually carrying are the player's call. */
+  companion: {
+    abilityPoints: number;
+    skillRanks: Record<string, number>;
+    actionBar: (string | null)[];
+  };
+  story: {
+    chapter: number;
+    stage: number;
+    clearedStages: string[];
+    flags: Record<string, boolean>;
+  };
+  inventory: {
+    items: string[];                    // owned, unequipped gem ids (duplicates allowed)
+    necklace: (string | null)[];        // length NECKLACE_SLOTS, one gem id per slot or empty
+  };
+}
+
+export type SaveFile = SaveFileV4;
 
 export const slotKey = (slot: SlotNumber) => `mahery.save.${slot}`;
 
@@ -121,6 +159,11 @@ export function createNewSave(animalId: AnimalId): SaveFile {
       skillRanks: { [basic]: 1 },
       actionBar,
       passives: [],
+    },
+    companion: {
+      abilityPoints: STARTING_ABILITY_POINTS,
+      skillRanks: { [basic]: 1 },
+      actionBar: [...actionBar],
     },
     story: { chapter: 1, stage: 1, clearedStages: [], flags: {} },
     inventory: { items: [], necklace: Array(NECKLACE_SLOTS).fill(null) },
@@ -163,7 +206,8 @@ export function migrate(raw: unknown): SaveFile | null {
       s.story.flags ??= {};
       s.story.clearedStages ??= [];
       while (s.mahery.actionBar.length < ACTION_BAR_SLOTS) s.mahery.actionBar.push(null);
-      return { ...s, version: 3, mahery: { ...s.mahery, passives: [] } };
+      // Carry it forward the rest of the way (v3 -> v4) instead of duplicating that logic here.
+      return migrate({ ...s, version: 3, mahery: { ...s.mahery, passives: [] } });
     }
     case 3: {
       const s = raw as SaveFileV3;
@@ -177,6 +221,32 @@ export function migrate(raw: unknown): SaveFile | null {
       s.story.flags ??= {};
       s.story.clearedStages ??= [];
       while (s.mahery.actionBar.length < ACTION_BAR_SLOTS) s.mahery.actionBar.push(null);
+      // The companion's tree is brand new - back it with the same Ability Point budget Mahery
+      // would have earned by this level (see totalAbilityPointsAtLevel) rather than zero, so a
+      // save that's already deep into the story doesn't suddenly have a companion stuck on
+      // Basic Strike. Nothing pre-spent: the player picks the build fresh.
+      const basic = sharedSkillId(s.animalId, 'basicStrike');
+      const actionBar: (string | null)[] = Array(ACTION_BAR_SLOTS).fill(null);
+      actionBar[0] = basic;
+      return {
+        ...s,
+        version: 4,
+        companion: { abilityPoints: totalAbilityPointsAtLevel(s.mahery.level), skillRanks: { [basic]: 1 }, actionBar },
+      };
+    }
+    case 4: {
+      const s = raw as SaveFileV4;
+      if (!s.mahery || !s.story || !s.animalId || !s.companion) return null;
+      s.inventory ??= { items: [], necklace: Array(NECKLACE_SLOTS).fill(null) };
+      s.inventory.items ??= [];
+      s.inventory.necklace ??= Array(NECKLACE_SLOTS).fill(null);
+      while (s.inventory.necklace.length < NECKLACE_SLOTS) s.inventory.necklace.push(null);
+      s.mahery.marks ??= 0;
+      s.mahery.passives ??= [];
+      s.story.flags ??= {};
+      s.story.clearedStages ??= [];
+      while (s.mahery.actionBar.length < ACTION_BAR_SLOTS) s.mahery.actionBar.push(null);
+      while (s.companion.actionBar.length < ACTION_BAR_SLOTS) s.companion.actionBar.push(null);
       return s;
     }
     default:

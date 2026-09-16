@@ -1,7 +1,9 @@
 import type { RankDef, SkillDef } from './types';
 
-// The bonded animal fights as a second unit. It borrows the animal's Basic Strike and
-// Guard Stance at Mahery's current rank, plus this one shared move. No leveling, no points.
+// The bonded animal fights as a second unit, with its own tree and action bar - same 12-move
+// pool as Mahery's animal (see sharedSkills.ts), independently unlocked and equipped (see
+// save.companion in state/saveFormat.ts). Stand Together below is the one exception: always
+// known, never competing for a bar slot, since it's the bond itself rather than a learned move.
 
 export const COMPANION_RATIOS = {
   health: 0.8,   // of Mahery's max Health

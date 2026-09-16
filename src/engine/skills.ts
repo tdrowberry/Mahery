@@ -97,10 +97,11 @@ export function resolveActionBar(
 }
 
 /**
- * The companion's kit: every shared skill Mahery has actually unlocked, at his rank in it
- * (the bond means the companion already knows the same moves), plus Stand Together. No
- * separate action bar to manage - whichever of these it needs, it can use, whether the
- * player is directing it or it's fighting on its own per the current ally stance.
+ * Legacy/fallback companion kit: every shared skill Mahery has actually unlocked, at his rank in
+ * it, plus Stand Together - unbounded by any 6-slot bar. Real play always gives the companion
+ * its own independent action bar instead (see CompanionSetup in engine/combat.ts and
+ * save.companion in state/saveFormat.ts); this only still runs when a caller doesn't pass one,
+ * which today is just the test/simulation battles that don't care about companion-bar specifics.
  */
 export function resolveCompanionSkills(animal: AnimalDef, skillRanks: Record<string, number>): ActiveSkill[] {
   const skills = getAnimalSkills(animal);
