@@ -237,12 +237,12 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
    turnaround photos' actual proportions - all of them are full-body, bottom-anchored, similar
    headroom, so one percentage works across every hybrid form. */
 .necklace-gems {
-  position: absolute; left: 50%; top: 18%; translate: -50% 0; width: 58%;
+  position: absolute; left: 50%; top: 19%; translate: -50% 0; width: 62%;
   z-index: 2; pointer-events: none;
 }
-.necklace-band { position: absolute; left: -3%; right: -3%; top: 0; width: 106%; height: 13px; display: block; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.55)); }
-.necklace-gem-row { position: relative; display: flex; justify-content: center; gap: 3px; padding-top: 5px; }
-.gem-dot { width: 15px; height: auto; display: block; }
+.necklace-band { position: relative; width: 100%; height: auto; display: block; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.55)); }
+.necklace-gem-row { position: absolute; left: 0; right: 0; top: 38%; display: flex; justify-content: center; align-items: center; gap: 4%; }
+.gem-dot { width: 13%; height: auto; display: block; }
 .photo-sprite-shadow {
   position: absolute; left: 50%; bottom: -2px; width: 62%; height: 10px; translate: -50% 0;
   background: radial-gradient(ellipse, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0) 72%);
@@ -592,10 +592,10 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .passive-option:hover { border-color: var(--accent); background: rgba(217,160,91,0.12); }
 .ab-panel { display: flex; flex-direction: column; }
 .ab-center { display: flex; flex-direction: column; gap: 10px; }
-.tree-box { position: relative; width: 300px; height: 380px; margin: 0 auto; background: rgba(0,0,0,0.25); border-radius: 6px; }
+.tree-box { position: relative; width: 300px; height: 560px; margin: 0 auto; background: rgba(0,0,0,0.25); border-radius: 6px; }
 .tree-links { position: absolute; inset: 0; }
-.tree-links line { stroke: #14171b; stroke-width: 6; stroke-linecap: round; }
-.tree-links line.lit { stroke: #e0b64a; stroke-width: 4; filter: drop-shadow(0 0 4px rgba(224,182,74,0.7)); }
+.tree-links path { stroke: #14171b; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+.tree-links path.lit { stroke: #e0b64a; stroke-width: 4; filter: drop-shadow(0 0 4px rgba(224,182,74,0.7)); }
 .tree-node-wrap { position: absolute; width: 52px; height: 52px; }
 .tree-node { position: relative; width: 52px; height: 52px; padding: 0; border: none; background: transparent; border-radius: 50%; }
 .tree-node.locked { filter: grayscale(0.6); }

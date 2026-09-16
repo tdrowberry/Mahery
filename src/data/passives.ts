@@ -1,9 +1,11 @@
 // Passive perks: permanent, always-on bonuses that never take an action-bar slot, so investing
-// in them never costs you a damage skill's spot. Three choice points sit along the shared-skill
-// chain (see sharedSkills.ts) - reaching each one lets you pick ONE of two passives, permanently.
-// This is the build-defining choice the strict linear chain deliberately doesn't have anywhere
-// else: everyone learns the same skills in the same order, but not everyone picks the same three
-// passives, and a respec (see progression.ts) clears these too so they can be re-picked.
+// in them never costs you a damage skill's spot. One choice point sits at the end of each of the
+// three skill-tree columns (see sharedSkills.ts's COLUMN_FINISHERS) - finishing a branch lets you
+// pick ONE of two passives from it, permanently. This is the build-defining choice the strict
+// linear columns deliberately don't have anywhere else: everyone in a given branch learns the
+// same skills in the same order, but not everyone finishes the branches in the same order or
+// picks the same three passives, and a respec (see progression.ts) clears these too so they can
+// be re-picked.
 
 export type PassiveEffect =
   | { kind: 'maxHealthPct'; pct: number }
@@ -30,7 +32,7 @@ export interface PassiveChoicePoint {
 export const PASSIVE_CHOICE_POINTS: PassiveChoicePoint[] = [
   {
     id: 'tier1',
-    afterSkill: 'weaken',
+    afterSkill: 'powerStrike',
     options: [
       {
         id: 'ironHide', name: 'Iron Hide',
@@ -46,7 +48,7 @@ export const PASSIVE_CHOICE_POINTS: PassiveChoicePoint[] = [
   },
   {
     id: 'tier2',
-    afterSkill: 'quickStrike',
+    afterSkill: 'hamstring',
     options: [
       {
         id: 'huntersEdge', name: "Hunter's Edge",

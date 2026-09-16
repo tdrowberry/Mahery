@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Attributes, EnemyDef, EnemyMove } from '../../data/types';
 import { getAnimal } from '../../data/animals';
-import { SHARED_KINDS } from '../../data/sharedSkills';
+import { SKILL_COLUMNS } from '../../data/sharedSkills';
 import { maxHealth, maxSpirit, scaledValue } from '../formulas';
 import { createRng } from '../rng';
 import {
@@ -345,23 +345,28 @@ describe('progression', () => {
     expect(xpToNextLevel(2)).toBe(150);
   });
   it('skill tree prerequisites gate unlocks', () => {
-    // The whole shared-skill list is one straight chain (see sharedSkills.ts): the signature
-    // skill requires rank 1 of the last link, Rally ("Den Call" for bear).
+    // The signature skill sits below all three columns (see sharedSkills.ts) and requires rank 1
+    // of every column's last skill - Power Strike, Rally ("Den Call" for bear), and Hamstring -
+    // not just one of them.
     const unique = ALL_SKILLS.find((k) => k.id === ids.unique)!;
-    const noRally = checkUnlock(unique, { [ids.basicStrike]: 1 }, 5, 5, 1, ALL_SKILLS);
-    expect(noRally.ok).toBe(false);
-    expect(noRally.reason).toMatch(/Den Call rank 1/);
-    const lowLevel = checkUnlock(unique, { [ids.basicStrike]: 1, [ids.rally]: 1 }, 1, 5, 1, ALL_SKILLS);
+    const missingTwo = checkUnlock(unique, { [ids.basicStrike]: 1, [ids.powerStrike]: 1 }, 5, 5, 1, ALL_SKILLS);
+    expect(missingTwo.ok).toBe(false);
+    expect(missingTwo.reason).toMatch(/rank 1/);
+    const allFinishers = { [ids.basicStrike]: 1, [ids.powerStrike]: 1, [ids.rally]: 1, [ids.hamstring]: 1 };
+    const lowLevel = checkUnlock(unique, allFinishers, 1, 5, 1, ALL_SKILLS);
     expect(lowLevel.reason).toMatch(/level 2/);
-    const ok = checkUnlock(unique, { [ids.basicStrike]: 1, [ids.rally]: 1 }, 2, 5, 1, ALL_SKILLS);
+    const ok = checkUnlock(unique, allFinishers, 2, 5, 1, ALL_SKILLS);
     expect(ok.ok).toBe(true);
     const maxed = checkUnlock(unique, { [ids.unique]: 3 }, 9, 9, 1, ALL_SKILLS);
     expect(maxed.ok).toBe(false);
   });
-  it('the shared-skill chain has no forks - each rank 1 requires only the one before it', () => {
-    for (let i = 1; i < SHARED_KINDS.length; i++) {
-      const def = ALL_SKILLS.find((k) => k.sharedKind === SHARED_KINDS[i])!;
-      expect(def.requires).toEqual([{ skillId: `bear.${SHARED_KINDS[i - 1]}`, rank: 1 }]);
+  it('each skill-tree column is its own straight chain - no forks within a column', () => {
+    for (const column of SKILL_COLUMNS) {
+      for (let i = 0; i < column.length; i++) {
+        const def = ALL_SKILLS.find((k) => k.sharedKind === column[i])!;
+        const prev = i === 0 ? 'basicStrike' : column[i - 1];
+        expect(def.requires).toEqual([{ skillId: `bear.${prev}`, rank: 1 }]);
+      }
     }
   });
   it('save file round-trips through migrate', () => {

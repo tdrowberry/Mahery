@@ -1,4 +1,5 @@
 import type { AnimalDef, AnimalId, ArtId, RankDef, SkillDef, VoiceLines } from './types';
+import { COLUMN_FINISHERS } from './sharedSkills';
 
 // All 11 bonds. Shared skills come from sharedSkills.ts; each animal only supplies
 // names and flavor for them, plus its own signature skill, stat mods, and voice.
@@ -10,14 +11,14 @@ type UniqueSpec = Omit<SkillDef, 'kind' | 'id' | 'ranks' | 'maxRank'> & {
   ranks: [RankDef, RankDef, RankDef, RankDef, RankDef];
 };
 
-// The signature skill sits at the very end of the shared-skill chain (see sharedSkills.ts) -
-// the payoff for having put at least one point into every other ability first.
+// The signature skill sits below all three shared-skill columns converge (see sharedSkills.ts) -
+// the payoff for having finished every branch, not just one.
 const unique = (animalId: AnimalId, spec: UniqueSpec): SkillDef => ({
   ...spec,
   id: `${animalId}.unique`,
   kind: 'unique',
   maxRank: 5,
-  requires: spec.requires ?? [{ skillId: `${animalId}.rally`, rank: 1 }],
+  requires: spec.requires ?? COLUMN_FINISHERS.map((kind) => ({ skillId: `${animalId}.${kind}`, rank: 1 })),
   minLevel: spec.minLevel ?? 2,
 });
 

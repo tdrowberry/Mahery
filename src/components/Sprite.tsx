@@ -773,21 +773,13 @@ export function Sprite({ art, color, size = 160, dimmed, flip, className = '', t
       </div>
       {necklace && necklace.some((id) => id) && (
         // Sits outside .sprite-flip so it's never mirrored - necklace is Mahery-only, and Mahery
-        // is never flip'd, but this keeps gem order stable regardless. A thin gold choker band
-        // (generic, not per-character - the source art is one 3/4 studio angle that can't be
-        // fitted to 11 different necks) sits behind the row of real gem icons, so every hybrid
-        // form reads as "wearing a necklace" rather than just floating colored stones.
+        // is never flip'd, but this keeps gem order stable regardless. The band is a real crop
+        // of the reference choker art (not hand-drawn - generic, not per-character, since the
+        // source is one studio angle that can't be fitted to 11 different necks), with the row
+        // of real gem icons laid over its carved settings so every hybrid form reads as
+        // "wearing a necklace" rather than just floating colored stones.
         <div className="necklace-gems">
-          <svg className="necklace-band" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">
-            <defs>
-              <linearGradient id={`band-${uid}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#f6e2a0" />
-                <stop offset="50%" stopColor="#c9973f" />
-                <stop offset="100%" stopColor="#6e4f18" />
-              </linearGradient>
-            </defs>
-            <path d="M3,9 Q50,15 97,9 L97,15 Q50,21 3,15 Z" fill={`url(#band-${uid})`} stroke="#4a3610" strokeWidth="1" />
-          </svg>
+          <img className="necklace-band" src="/art/necklace-band.png" alt="" />
           <div className="necklace-gem-row">
             {necklace.map((id, i) => {
               if (!id) return null;

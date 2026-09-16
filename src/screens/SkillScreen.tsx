@@ -20,30 +20,40 @@ const ATTRS: { key: keyof Attributes; label: string; color: string; note: string
   { key: 'speed', label: 'Speed', color: '#e8c15a', note: 'Turn order, crit, evasion' },
 ];
 
-// One straight chain (see sharedSkills.ts), laid out as a snake across a 3x4 grid so every
-// connector is a plain horizontal or vertical segment - no diagonals, so no line ever crosses
-// another. Reading order follows SHARED_KINDS: rank 1 in each skill unlocks the next, ending at
-// the signature skill - the most situational, highest-payoff tools come last.
+// Basic Strike is the root at the top; three independent columns (see sharedSkills.ts's
+// COLUMN_ATTACKS/COLUMN_SUPPORT/COLUMN_BUFFS) flow straight down from it, one skill per row, and
+// the signature skill sits below all three once every column's last skill is rank 1. Every link
+// is rendered as an orthogonal (horizontal-then-vertical) elbow via linkPath below, so even the
+// root's fan-out and the signature's convergence never draw a diagonal line.
 const TREE_POS: Record<string, { x: number; y: number }> = {
-  basicStrike: { x: 50, y: 30 },
-  guardStance: { x: 150, y: 30 },
-  secondWind: { x: 250, y: 30 },
+  basicStrike: { x: 150, y: 30 },
+  // Attacks (left)
+  weaken: { x: 50, y: 130 },
+  rendingClaw: { x: 50, y: 230 },
+  powerStrike: { x: 50, y: 330 },
+  // Healing / Block (center) - the longest column, four skills deep
+  guardStance: { x: 150, y: 130 },
+  secondWind: { x: 150, y: 230 },
+  secondBreath: { x: 150, y: 330 },
+  rally: { x: 150, y: 430 },
+  // Buffs / Debuffs (right)
   instinctSurge: { x: 250, y: 130 },
-  weaken: { x: 150, y: 130 },
-  powerStrike: { x: 50, y: 130 },
-  secondBreath: { x: 50, y: 230 },
-  rendingClaw: { x: 150, y: 230 },
   quickStrike: { x: 250, y: 230 },
   hamstring: { x: 250, y: 330 },
-  rally: { x: 150, y: 330 },
-  unique: { x: 50, y: 330 },
+  unique: { x: 150, y: 530 },
 };
 const TREE_LINKS: [string, string][] = [
-  ['basicStrike', 'guardStance'], ['guardStance', 'secondWind'], ['secondWind', 'instinctSurge'],
-  ['instinctSurge', 'weaken'], ['weaken', 'powerStrike'], ['powerStrike', 'secondBreath'],
-  ['secondBreath', 'rendingClaw'], ['rendingClaw', 'quickStrike'], ['quickStrike', 'hamstring'],
-  ['hamstring', 'rally'], ['rally', 'unique'],
+  ['basicStrike', 'weaken'], ['weaken', 'rendingClaw'], ['rendingClaw', 'powerStrike'], ['powerStrike', 'unique'],
+  ['basicStrike', 'guardStance'], ['guardStance', 'secondWind'], ['secondWind', 'secondBreath'], ['secondBreath', 'rally'], ['rally', 'unique'],
+  ['basicStrike', 'instinctSurge'], ['instinctSurge', 'quickStrike'], ['quickStrike', 'hamstring'], ['hamstring', 'unique'],
 ];
+/** A same-column link is a straight vertical drop; a root fan-out or signature convergence link
+ * (different x) bends once through the horizontal midpoint instead of cutting a diagonal. */
+const linkPath = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+  if (a.x === b.x) return `M${a.x},${a.y} L${b.x},${b.y}`;
+  const midY = (a.y + b.y) / 2;
+  return `M${a.x},${a.y} L${a.x},${midY} L${b.x},${midY} L${b.x},${b.y}`;
+};
 
 export function SkillScreen() {
   const save = useGame((s) => s.save);
@@ -133,11 +143,11 @@ export function SkillScreen() {
         <div className="steel ab-panel">
           <div className="ab-title">Ability Tree</div>
           <div className="tree-box">
-            <svg className="tree-links" viewBox="0 0 300 380" width="300" height="380">
+            <svg className="tree-links" viewBox="0 0 300 560" width="300" height="560">
               {TREE_LINKS.map(([a, b]) => {
                 const pa = TREE_POS[a]; const pb = TREE_POS[b];
                 const lit = (ranks[skills.find((s) => keyOf(s) === b)!.id] ?? 0) > 0;
-                return <line key={`${a}-${b}`} x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y} className={lit ? 'lit' : ''} />;
+                return <path key={`${a}-${b}`} d={linkPath(pa, pb)} fill="none" className={lit ? 'lit' : ''} />;
               })}
             </svg>
             {skills.map((def) => {

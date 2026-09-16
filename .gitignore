@@ -17,7 +17,8 @@ android/app/src/main/assets/capacitor.config.json
 *.apk
 *.aab
 
-# Music dropped at the project root, not yet wired into the game (no code references them) -
-# leave them out of the repo until they're actually integrated as real game assets.
+# Music/video dropped at the project root, not yet wired into the game (no code references
+# them) - leave them out of the repo until they're actually integrated as real game assets.
 /*.mp3
+/*.mp4
 *.tsbuildinfo
