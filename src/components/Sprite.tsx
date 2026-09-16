@@ -1,7 +1,6 @@
 import { useEffect, useId, useMemo, useState, type CSSProperties, type ReactElement } from 'react';
 import type { AnimStyle, ArtId } from '../data/types';
 import type { Unit } from '../engine/combat';
-import { GEM_KIND_COLOR, GEM_KIND_ICON, getGem } from '../data/gems';
 
 // Illustrated vector art, drawn as inline SVG in a 120x160 box. Every figure is filled and
 // gradient-shaded (not just outlined) with a bold ink rim, textured fur/scale linework, and
@@ -644,10 +643,6 @@ interface SpriteProps {
    * that turns a fighter away from the fight; omit it to keep the old free-running showcase
    * cycle used by the bond-choice grid, where there's no "opponent" to face. */
   pose?: 'front' | 'toward';
-  /** Gem ids worn in each necklace slot (null = empty). Mahery-only - pass this whenever this
-   * Sprite IS Mahery so his equipped gems actually show up on him, not just as stat numbers on
-   * the Items screen. */
-  necklace?: (string | null)[];
 }
 
 // Many characters are now rendered from real photo references instead of the hand-drawn
@@ -696,7 +691,7 @@ const PHOTO_SETS: Partial<Record<ArtId, string[]>> = {
 };
 const PHOTO_CYCLE_STEP_SECONDS = 3;
 
-export function Sprite({ art, color, size = 160, dimmed, flip, className = '', title, onClick, delay = 0, pose, necklace }: SpriteProps) {
+export function Sprite({ art, color, size = 160, dimmed, flip, className = '', title, onClick, delay = 0, pose }: SpriteProps) {
   // Namespace this instance's gradient ids so two sprites on screen at once (e.g. the bond
   // grid's 11 companions) never resolve to each other's <radialGradient> definitions.
   const rawId = useId();
@@ -771,34 +766,6 @@ export function Sprite({ art, color, size = 160, dimmed, flip, className = '', t
           </svg>
         )}
       </div>
-      {necklace && necklace.some((id) => id) && (
-        // Sits outside .sprite-flip so it's never mirrored - necklace is Mahery-only, and Mahery
-        // is never flip'd, but this keeps gem order stable regardless. The band is a real crop
-        // of the reference choker art (not hand-drawn - generic, not per-character, since the
-        // source is one studio angle that can't be fitted to 11 different necks), with the row
-        // of real gem icons laid over its carved settings so every hybrid form reads as
-        // "wearing a necklace" rather than just floating colored stones.
-        <div className="necklace-gems">
-          <img className="necklace-band" src="/art/necklace-band.png" alt="" />
-          <div className="necklace-gem-row">
-            {necklace.map((id, i) => {
-              if (!id) return null;
-              const gem = getGem(id);
-              const gemColor = GEM_KIND_COLOR[gem.kind];
-              return (
-                <img
-                  key={i}
-                  src={GEM_KIND_ICON[gem.kind]}
-                  alt=""
-                  className="gem-dot"
-                  style={{ filter: `drop-shadow(0 0 3px ${gemColor}) drop-shadow(0 1px 1px rgba(0,0,0,0.6))` }}
-                  title={gem.name}
-                />
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -854,12 +821,10 @@ interface UnitSpriteProps {
   /** null hides the label entirely */
   label?: string | null;
   delay?: number;
-  /** Mahery's equipped gems, shown on his necklace - pass only when `unit` is Mahery. */
-  necklace?: (string | null)[];
 }
 
 /** A combat unit's figure with floating damage numbers and a name label. */
-export function UnitSprite({ unit, size = 170, active, targetable, onClick, label, delay, necklace }: UnitSpriteProps) {
+export function UnitSprite({ unit, size = 170, active, targetable, onClick, label, delay }: UnitSpriteProps) {
   const down = unit.health <= 0;
   const airborne = !down && unit.statuses.some((st) => st.id === 'airborne');
   const charging = !down && unit.statuses.some((st) => st.id === 'charging');
@@ -898,7 +863,6 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
             onClick={targetable && !down ? onClick : undefined}
             delay={delay}
             pose={pose}
-            necklace={necklace}
           />
           {impact === 'slash' && (
             <div className="impact-slash">

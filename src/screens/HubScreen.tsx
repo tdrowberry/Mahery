@@ -73,7 +73,7 @@ export function HubScreen() {
         <div className="steel ab-panel">
           <div className="ab-title">Mahery</div>
           <div className="hub-figures">
-            <Sprite art={heroArtId(save.animalId)} color={animal.color} size={140} title="Mahery" necklace={save.inventory.necklace} />
+            <Sprite art={heroArtId(save.animalId)} color={animal.color} size={140} title="Mahery" />
             <Sprite art={animal.art} color={animal.color} size={130} title={animal.name} delay={0.6} />
           </div>
           <div className="char-class" style={{ textAlign: 'center' }}>Lvl. {m.level} {animal.name}-bonded</div>

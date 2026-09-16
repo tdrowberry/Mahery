@@ -1,7 +1,5 @@
 import { useGame } from '../state/gameStore';
-import { getAnimal, heroArtId } from '../data/animals';
-import { GEM_KIND_COLOR, GEM_KIND_LABEL, getGem } from '../data/gems';
-import { Sprite } from '../components/Sprite';
+import { GEM_KIND_COLOR, GEM_KIND_ICON, GEM_KIND_LABEL, getGem } from '../data/gems';
 import { MenuStrip } from '../components/MenuStrip';
 
 export function InventoryScreen() {
@@ -10,7 +8,6 @@ export function InventoryScreen() {
   const unequipGem = useGame((s) => s.unequipGem);
   const sellItem = useGame((s) => s.sellItem);
   if (!save) return null;
-  const animal = getAnimal(save.animalId);
   const necklace = save.inventory.necklace;
   const necklaceFull = necklace.every((id) => id);
 
@@ -24,8 +21,25 @@ export function InventoryScreen() {
       <div className="inv-layout">
         <div className="steel ab-panel">
           <div className="ab-title">Necklace</div>
-          <div className="inv-figure">
-            <Sprite art={heroArtId(save.animalId)} color={animal.color} size={170} title="Mahery" necklace={necklace} />
+          <div className="necklace-display">
+            <img className="necklace-band" src="/art/necklace-band.png" alt="" />
+            <div className="necklace-gem-row">
+              {necklace.map((id, i) => {
+                if (!id) return <div key={i} className="gem-dot gem-dot-empty" />;
+                const gem = getGem(id);
+                const gemColor = GEM_KIND_COLOR[gem.kind];
+                return (
+                  <img
+                    key={i}
+                    src={GEM_KIND_ICON[gem.kind]}
+                    alt=""
+                    className="gem-dot"
+                    style={{ filter: `drop-shadow(0 0 3px ${gemColor}) drop-shadow(0 1px 1px rgba(0,0,0,0.6))` }}
+                    title={gem.name}
+                  />
+                );
+              })}
+            </div>
           </div>
           <div className="muted small" style={{ textAlign: 'center', margin: '0 0 8px' }}>
             5 gem slots. Gems only ever come from what you kill - equip one, and it shows right on the necklace.

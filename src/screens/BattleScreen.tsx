@@ -45,7 +45,6 @@ function HudRow({ unit, active, directing, align }: { unit: Unit; active?: boole
 
 export function BattleScreen() {
   const battle = useGame((s) => s.battle);
-  const save = useGame((s) => s.save);
   const roamingEncounter = useGame((s) => s.roamingEncounter);
   const battleUseSkill = useGame((s) => s.battleUseSkill);
   const battleSelect = useGame((s) => s.battleSelect);
@@ -132,7 +131,7 @@ export function BattleScreen() {
         {armed && !battle.banner && <div className="banner hint-banner">Choose a target for {armed.name}.</div>}
         <div className="field-party">
           <div className={`party-slot ${battle.activeId === 'mahery' ? 'directing' : ''}`} onClick={() => select('mahery')} data-testid="select-mahery">
-            <UnitSprite unit={battle.units.mahery} size={battle.activeId === 'mahery' ? 175 : 145} active={battle.currentActor === 'mahery'} label={null} necklace={save?.inventory.necklace} />
+            <UnitSprite unit={battle.units.mahery} size={battle.activeId === 'mahery' ? 175 : 145} active={battle.currentActor === 'mahery'} label={null} />
           </div>
           <div className={`party-slot ${battle.activeId === 'companion' ? 'directing' : ''}`} onClick={() => select('companion')} data-testid="select-companion">
             <UnitSprite unit={battle.units.companion} size={battle.activeId === 'companion' ? 175 : 145} active={battle.currentActor === 'companion'} label={null} delay={0.5} />
