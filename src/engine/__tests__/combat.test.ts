@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest';
 import type { Attributes, EnemyDef, EnemyMove } from '../../data/types';
 import { getAnimal } from '../../data/animals';
 import { SKILL_COLUMNS } from '../../data/sharedSkills';
+import { COMPANION_SKILL_COLUMNS } from '../../data/companionSkills';
 import { maxHealth, maxSpirit, scaledValue } from '../formulas';
 import { createRng } from '../rng';
 import {
   advance, createBattle, effectiveAttributes, getStatus, hasStatus, playerSelectUnit, playerUseSkill, playerWait, type BattleState,
 } from '../combat';
 import { gainXp, totalAbilityPointsAtLevel, xpToNextLevel } from '../../data/progression';
-import { checkUnlock, getAnimalSkills, resolveCompanionSkills } from '../skills';
+import { checkUnlock, companionSkillId, getAnimalSkills, getCompanionSkills, resolveCompanionSkills } from '../skills';
 import { createNewSave, migrate } from '../../state/saveFormat';
 
 const bear = getAnimal('bear');
@@ -34,6 +35,7 @@ function enemy(overrides: Partial<EnemyDef> & { moves?: EnemyMove[] } = {}): Ene
 
 const ALL_SKILLS = getAnimalSkills(bear);
 const ids = Object.fromEntries(ALL_SKILLS.map((s) => [s.sharedKind ?? 'unique', s.id])) as Record<string, string>;
+const COMPANION_ALL_SKILLS = getCompanionSkills(bear);
 
 /** Keep advancing until it is exactly this unit's turn, or the battle ends. */
 function advanceToTurn(s: BattleState, unitId: string, guard = 60): BattleState {
@@ -369,6 +371,25 @@ describe('progression', () => {
       }
     }
   });
+  it("the companion's own tree is a genuinely different kit - different ids, different column shape, and its own straight chains", () => {
+    // Different move pool entirely: none of Mahery's shared-skill ids should appear in it.
+    for (const def of COMPANION_ALL_SKILLS) expect(ALL_SKILLS.some((k) => k.id === def.id)).toBe(false);
+    // Support/Healing leans the kit toward the companion's role - more moves there than Attacks.
+    const [attacks, support] = COMPANION_SKILL_COLUMNS;
+    expect(support.length).toBeGreaterThan(attacks.length);
+    expect(attacks.length).toBeLessThan(3);
+    for (const column of COMPANION_SKILL_COLUMNS) {
+      for (let i = 0; i < column.length; i++) {
+        const def = COMPANION_ALL_SKILLS.find((k) => k.sharedKind === column[i])!;
+        const prev = i === 0 ? 'nudge' : column[i - 1];
+        expect(def.requires).toEqual([{ skillId: `bear.companion.${prev}`, rank: 1 }]);
+      }
+    }
+    // Ally-targeted support tools Mahery's own kit doesn't have.
+    const shieldAlly = COMPANION_ALL_SKILLS.find((k) => k.sharedKind === 'shieldAlly')!;
+    expect(shieldAlly.target).toBe('ally');
+    expect(shieldAlly.ranks[0].effects.some((e) => e.kind === 'shield')).toBe(true);
+  });
   it('save file round-trips through migrate', () => {
     const save = createNewSave('bear');
     expect(save.mahery.actionBar[0]).toBe(ids.basicStrike);
@@ -386,8 +407,9 @@ describe('progression', () => {
     const migrated = migrate(v3);
     expect(migrated).not.toBeNull();
     expect(migrated!.companion.abilityPoints).toBe(totalAbilityPointsAtLevel(9));
-    expect(migrated!.companion.skillRanks).toEqual({ [ids.basicStrike]: 1 });
-    expect(migrated!.companion.actionBar[0]).toBe(ids.basicStrike);
+    const companionBasic = companionSkillId('bear', 'nudge');
+    expect(migrated!.companion.skillRanks).toEqual({ [companionBasic]: 1 });
+    expect(migrated!.companion.actionBar[0]).toBe(companionBasic);
     expect(migrated!.companion.actionBar).toHaveLength(6);
   });
 });

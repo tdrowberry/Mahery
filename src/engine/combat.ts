@@ -7,7 +7,7 @@ import { createRng, type Rng } from './rng';
 import {
   applyVariance, CRIT_MULTIPLIER, critChance, evasionChance, maxHealth, maxSpirit, round, scaledValue,
 } from './formulas';
-import { resolveActionBar, resolveCompanionSkills, resolveSkill } from './skills';
+import { resolveActionBar, resolveCompanionActionBar, resolveCompanionSkills, resolveSkill } from './skills';
 import { chooseEnemyMove } from './ai';
 import { chooseAllyMove } from './allyAi';
 
@@ -205,7 +205,7 @@ export function createBattle(setup: BattleSetup): BattleState {
   // CompanionSetup) - Stand Together rides along regardless, since it's the bond itself, not a
   // learnable move competing for one of the 6 slots.
   const companionSkills: (ActiveSkill | null)[] = companionSetup
-    ? [...resolveActionBar(animal, companionSetup.actionBar, companionSetup.skillRanks), resolveSkill(STAND_TOGETHER, 1)]
+    ? [...resolveCompanionActionBar(animal, companionSetup.actionBar, companionSetup.skillRanks), resolveSkill(STAND_TOGETHER, 1)]
     : resolveCompanionSkills(animal, mahery.skillRanks);
   const companion: Unit = {
     id: 'companion', name: animal.name, side: 'player', kind: 'companion', color: animal.color, art: animal.art,

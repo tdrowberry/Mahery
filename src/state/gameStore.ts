@@ -9,7 +9,9 @@ import { getScene, PROLOGUE_WAKE } from '../data/story';
 import {
   ACTION_BAR_SLOTS, BASE_ATTRIBUTES, companionAbilityPointsForLevels, gainXp, MAX_RANK, RANK_COST, respecCost,
 } from '../data/progression';
-import { checkUnlock, findSkill, getAnimalSkills, sharedSkillId } from '../engine/skills';
+import {
+  checkUnlock, companionSkillId, findCompanionSkill, findSkill, getAnimalSkills, getCompanionSkills, sharedSkillId,
+} from '../engine/skills';
 import {
   advance, createBattle, playerSelectUnit, playerUseSkill, playerWait,
   setAllyStance as setAllyStanceEngine, type BattleState,
@@ -317,8 +319,8 @@ export const useGame = create<GameState>((set, get) => ({
     const { save } = get();
     if (!save) return 'No save loaded.';
     const animal = getAnimal(save.animalId);
-    const all = getAnimalSkills(animal);
-    const def = findSkill(animal, skillId);
+    const all = getCompanionSkills(animal);
+    const def = findCompanionSkill(animal, skillId);
     if (!def) return 'Unknown skill.';
     const check = checkUnlock(def, save.companion.skillRanks, save.mahery.level, save.companion.abilityPoints, RANK_COST, all);
     if (!check.ok) return check.reason ?? 'Cannot unlock.';
@@ -349,7 +351,7 @@ export const useGame = create<GameState>((set, get) => ({
     if (!save) return 'No save loaded.';
     const cost = respecCost(save.mahery.level);
     if (save.mahery.marks < cost) return `Not enough Marks (needs ${cost}).`;
-    const basic = sharedSkillId(save.animalId, 'basicStrike');
+    const basic = companionSkillId(save.animalId, 'nudge');
     const ranksSpent = Object.values(save.companion.skillRanks).reduce((sum, r) => sum + r, 0) - 1;
     const next: SaveFile = {
       ...save,

@@ -56,7 +56,6 @@ export function BattleScreen() {
   const finishBattle = useGame((s) => s.finishBattle);
   const [armed, setArmed] = useState<ActiveSkill | null>(null);
   const [showLog, setShowLog] = useState(false);
-  const [showStance, setShowStance] = useState(false);
 
   // Enemy and auto-ally turns play out one beat at a time so the fight is readable.
   useEffect(() => {
@@ -181,23 +180,20 @@ export function BattleScreen() {
           </button>
           <div className="team-meta">
             <span className="muted small">{other.name} · {other.health}/{other.maxHealth}</span>
-            <button className="mini-btn" onClick={() => setShowStance((v) => !v)} title="Set this one's stance" data-testid="stance-toggle">⚙</button>
           </div>
-          {showStance && (
-            <div className="stance-row">
-              {STANCES.map((st) => (
-                <button
-                  key={st.id}
-                  className={`stance-btn ${battle.allyStance === st.id ? 'on' : ''}`}
-                  onClick={() => battleSetStance(st.id)}
-                  title={st.hint}
-                  data-testid={`stance-${st.id}`}
-                >
-                  {st.label}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="stance-row">
+            {STANCES.map((st) => (
+              <button
+                key={st.id}
+                className={`stance-btn ${battle.allyStance === st.id ? 'on' : ''}`}
+                onClick={() => battleSetStance(st.id)}
+                title={st.hint}
+                data-testid={`stance-${st.id}`}
+              >
+                {st.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="steel ctl-center">
           <button className={`round-btn ${playerTurn ? 'on' : ''}`} disabled={!playerTurn} onClick={battleWait} title="Wait: end this turn without acting" data-testid="wait-btn">

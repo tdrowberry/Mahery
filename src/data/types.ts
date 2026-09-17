@@ -8,6 +8,14 @@ export type SharedKind =
   | 'powerStrike' | 'weaken' | 'rally'
   | 'secondBreath' | 'quickStrike' | 'rendingClaw' | 'hamstring';
 
+/** The companion's own move pool (see data/companionSkills.ts) - deliberately not the same
+ * kinds as SharedKind: it's a genuinely different, support/healing-leaning kit, not just an
+ * independently-leveled copy of Mahery's. */
+export type CompanionSharedKind =
+  | 'nudge' | 'bite' | 'pounce'
+  | 'nuzzle' | 'shieldAlly' | 'lick' | 'share' | 'calm'
+  | 'rallyCry' | 'quicken' | 'harry';
+
 /** How the party member you are not directly controlling picks its moves each turn. */
 export type Stance = 'aggressive' | 'balanced' | 'support';
 
@@ -119,7 +127,9 @@ export interface SkillDef {
   icon: IconId;
   anim: AnimStyle;
   kind: 'shared' | 'unique' | 'companion';
-  sharedKind?: SharedKind;
+  /** Set for Mahery's shared-pool skills or the companion's own pool - whichever one this
+   * SkillDef came from (the two kind spaces don't overlap, so one optional field covers both). */
+  sharedKind?: SharedKind | CompanionSharedKind;
   target: TargetRule;
   /** shared skills are always exactly 3 (MAX_RANK); a unique skill can go further - see maxRank */
   ranks: RankDef[];
@@ -155,6 +165,18 @@ export interface SharedSkillTemplate {
   minLevel?: number;
 }
 
+/** Same shape as SharedSkillTemplate, for the companion's own move pool (see
+ * data/companionSkills.ts) - a separate type only because the kind values differ. */
+export interface CompanionSkillTemplate {
+  sharedKind: CompanionSharedKind;
+  icon: IconId;
+  anim: AnimStyle;
+  target: TargetRule;
+  ranks: [RankDef, RankDef, RankDef];
+  requires?: { skillId: string; rank: number }[];
+  minLevel?: number;
+}
+
 export interface VoiceLines {
   prologue: string[];
   beforeStage1: string[];
@@ -179,6 +201,12 @@ export interface AnimalDef {
   baseStatMods: Attributes;
   sharedSkillFlavor: Record<SharedKind, { name: string; flavor: string }>;
   uniqueSkill: SkillDef;
+  /** Names/flavor for the companion's own move pool (see data/companionSkills.ts) - same
+   * template numbers for every animal, reflavored per animal exactly like sharedSkillFlavor. */
+  companionSkillFlavor: Record<CompanionSharedKind, { name: string; flavor: string }>;
+  /** Name/flavor for the companion's signature move - templated numbers (see
+   * COMPANION_SIGNATURE_RANKS), not bespoke per animal like Mahery's uniqueSkill. */
+  companionSignatureFlavor: { name: string; flavor: string };
   voice: VoiceLines;
 }
 

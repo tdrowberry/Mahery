@@ -3,7 +3,7 @@ import { useGame } from '../state/gameStore';
 import { getAnimal } from '../data/animals';
 import { ACTION_BAR_SLOTS, MAX_RANK, RANK_COST, respecCost } from '../data/progression';
 import type { AnimalDef, Attributes, SkillDef } from '../data/types';
-import { checkUnlock, getAnimalSkills } from '../engine/skills';
+import { checkUnlock, getAnimalSkills, getCompanionSkills } from '../engine/skills';
 import { maxHealth, maxSpirit } from '../engine/formulas';
 import { getPassive, pendingChoicePoints } from '../data/passives';
 import { SkillIcon } from '../components/Icon';
@@ -20,12 +20,20 @@ const ATTRS: { key: keyof Attributes; label: string; color: string; note: string
   { key: 'speed', label: 'Speed', color: '#e8c15a', note: 'Turn order, crit, evasion' },
 ];
 
+/** A same-column link is a straight vertical drop; a root fan-out or signature convergence link
+ * (different x) bends once through the horizontal midpoint instead of cutting a diagonal. */
+const linkPath = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+  if (a.x === b.x) return `M${a.x},${a.y} L${b.x},${b.y}`;
+  const midY = (a.y + b.y) / 2;
+  return `M${a.x},${a.y} L${a.x},${midY} L${b.x},${midY} L${b.x},${b.y}`;
+};
+
 // Basic Strike is the root at the top; three independent columns (see sharedSkills.ts's
 // COLUMN_ATTACKS/COLUMN_SUPPORT/COLUMN_BUFFS) flow straight down from it, one skill per row, and
 // the signature skill sits below all three once every column's last skill is rank 1. Every link
-// is rendered as an orthogonal (horizontal-then-vertical) elbow via linkPath below, so even the
-// root's fan-out and the signature's convergence never draw a diagonal line.
-const TREE_POS: Record<string, { x: number; y: number }> = {
+// is rendered as an orthogonal (horizontal-then-vertical) elbow via linkPath, so even the root's
+// fan-out and the signature's convergence never draw a diagonal line.
+const MAHERY_TREE_POS: Record<string, { x: number; y: number }> = {
   basicStrike: { x: 150, y: 30 },
   // Attacks (left)
   weaken: { x: 50, y: 130 },
@@ -42,18 +50,42 @@ const TREE_POS: Record<string, { x: number; y: number }> = {
   hamstring: { x: 250, y: 330 },
   unique: { x: 150, y: 530 },
 };
-const TREE_LINKS: [string, string][] = [
+const MAHERY_TREE_LINKS: [string, string][] = [
   ['basicStrike', 'weaken'], ['weaken', 'rendingClaw'], ['rendingClaw', 'powerStrike'], ['powerStrike', 'unique'],
   ['basicStrike', 'guardStance'], ['guardStance', 'secondWind'], ['secondWind', 'secondBreath'], ['secondBreath', 'rally'], ['rally', 'unique'],
   ['basicStrike', 'instinctSurge'], ['instinctSurge', 'quickStrike'], ['quickStrike', 'hamstring'], ['hamstring', 'unique'],
 ];
-/** A same-column link is a straight vertical drop; a root fan-out or signature convergence link
- * (different x) bends once through the horizontal midpoint instead of cutting a diagonal. */
-const linkPath = (a: { x: number; y: number }, b: { x: number; y: number }) => {
-  if (a.x === b.x) return `M${a.x},${a.y} L${b.x},${b.y}`;
-  const midY = (a.y + b.y) / 2;
-  return `M${a.x},${a.y} L${a.x},${midY} L${b.x},${midY} L${b.x},${b.y}`;
+const MAHERY_TREE_HEIGHT = 560;
+
+// Nudge is the root; the companion's three columns are a different shape from Mahery's (see
+// companionSkills.ts) - only 2 Attacks, but 5 Support/Healing (the column the whole kit leans
+// on) and 3 Buffs/Debuffs, so Support runs two rows deeper than Mahery's longest column and the
+// signature sits lower to match.
+const COMPANION_TREE_POS: Record<string, { x: number; y: number }> = {
+  nudge: { x: 150, y: 30 },
+  // Attacks (left) - just 2, the smallest column on purpose
+  bite: { x: 50, y: 130 },
+  pounce: { x: 50, y: 230 },
+  // Support / Healing (center) - the dominant column, 5 deep
+  nuzzle: { x: 150, y: 130 },
+  shieldAlly: { x: 150, y: 230 },
+  lick: { x: 150, y: 330 },
+  share: { x: 150, y: 430 },
+  calm: { x: 150, y: 530 },
+  // Buffs / Debuffs (right)
+  rallyCry: { x: 250, y: 130 },
+  quicken: { x: 250, y: 230 },
+  harry: { x: 250, y: 330 },
+  // keyed 'unique' (not 'signature') to match AbilityTreePanel's keyOf fallback, same as
+  // Mahery's tree's capstone - both trees' SkillDefs land on kind:'unique' with no sharedKind.
+  unique: { x: 150, y: 630 },
 };
+const COMPANION_TREE_LINKS: [string, string][] = [
+  ['nudge', 'bite'], ['bite', 'pounce'], ['pounce', 'unique'],
+  ['nudge', 'nuzzle'], ['nuzzle', 'shieldAlly'], ['shieldAlly', 'lick'], ['lick', 'share'], ['share', 'calm'], ['calm', 'unique'],
+  ['nudge', 'rallyCry'], ['rallyCry', 'quicken'], ['quicken', 'harry'], ['harry', 'unique'],
+];
+const COMPANION_TREE_HEIGHT = 660;
 
 export function SkillScreen() {
   const save = useGame((s) => s.save);
@@ -70,6 +102,7 @@ export function SkillScreen() {
 
   const animal = getAnimal(save.animalId);
   const skills = getAnimalSkills(animal);
+  const companionSkills = getCompanionSkills(animal);
   const m = save.mahery;
   const c = save.companion;
   const pendingPassive = pendingChoicePoints(save.animalId, m.skillRanks, m.passives)[0] ?? null;
@@ -109,6 +142,9 @@ export function SkillScreen() {
           key="mahery"
           animal={animal}
           skills={skills}
+          treePos={MAHERY_TREE_POS}
+          treeLinks={MAHERY_TREE_LINKS}
+          treeHeight={MAHERY_TREE_HEIGHT}
           charName="Mahery"
           charClass={`Lvl. ${m.level} ${animal.name}-bonded`}
           level={m.level}
@@ -151,7 +187,10 @@ export function SkillScreen() {
         <AbilityTreePanel
           key="companion"
           animal={animal}
-          skills={skills}
+          skills={companionSkills}
+          treePos={COMPANION_TREE_POS}
+          treeLinks={COMPANION_TREE_LINKS}
+          treeHeight={COMPANION_TREE_HEIGHT}
           charName={`${animal.name} Companion`}
           charClass={`Lvl. ${m.level} · fights at Mahery's side`}
           level={m.level}
@@ -227,9 +266,12 @@ function ResetPanel({ title, description, cost, marks, onReset }: {
  * unlocked and equipped for each fighter). Owns its own selection/drag state so switching tabs
  * never leaves a stale selection pointing at the other fighter's ranks. */
 function AbilityTreePanel({
-  animal, skills, charName, charClass, level, abilityPoints, ranks, actionBar, onUnlock: unlock, onSetBarSlot, extraCharInfo, sidePanels,
+  animal, skills, treePos, treeLinks, treeHeight, charName, charClass, level, abilityPoints, ranks, actionBar,
+  onUnlock: unlock, onSetBarSlot, extraCharInfo, sidePanels,
 }: {
-  animal: AnimalDef; skills: SkillDef[]; charName: string; charClass: string; level: number; abilityPoints: number;
+  animal: AnimalDef; skills: SkillDef[];
+  treePos: Record<string, { x: number; y: number }>; treeLinks: [string, string][]; treeHeight: number;
+  charName: string; charClass: string; level: number; abilityPoints: number;
   ranks: Record<string, number>; actionBar: (string | null)[];
   onUnlock: (skillId: string) => string | null;
   onSetBarSlot: (slot: number, id: string | null) => void;
@@ -276,16 +318,16 @@ function AbilityTreePanel({
       {/* left: ability tree */}
       <div className="steel ab-panel">
         <div className="ab-title">Ability Tree</div>
-        <div className="tree-box">
-          <svg className="tree-links" viewBox="0 0 300 560" width="300" height="560">
-            {TREE_LINKS.map(([a, b]) => {
-              const pa = TREE_POS[a]; const pb = TREE_POS[b];
+        <div className="tree-box" style={{ height: treeHeight }}>
+          <svg className="tree-links" viewBox={`0 0 300 ${treeHeight}`} width="300" height={treeHeight}>
+            {treeLinks.map(([a, b]) => {
+              const pa = treePos[a]; const pb = treePos[b];
               const lit = (ranks[skills.find((s) => keyOf(s) === b)!.id] ?? 0) > 0;
               return <path key={`${a}-${b}`} d={linkPath(pa, pb)} fill="none" className={lit ? 'lit' : ''} />;
             })}
           </svg>
           {skills.map((def) => {
-            const pos = TREE_POS[keyOf(def)];
+            const pos = treePos[keyOf(def)];
             const rank = ranks[def.id] ?? 0;
             const c = check(def);
             return (

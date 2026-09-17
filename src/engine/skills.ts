@@ -1,9 +1,12 @@
-import type { ActiveSkill, AnimalDef, RankDef, SharedKind, SkillDef } from '../data/types';
+import type { ActiveSkill, AnimalDef, CompanionSharedKind, RankDef, SharedKind, SkillDef } from '../data/types';
 import { SHARED_KINDS, SHARED_SKILLS } from '../data/sharedSkills';
+import { COMPANION_FINISHERS, COMPANION_SHARED_KINDS, COMPANION_SHARED_SKILLS, COMPANION_SIGNATURE_RANKS } from '../data/companionSkills';
 import { STAND_TOGETHER } from '../data/companion';
 import { MAX_RANK } from '../data/progression';
 
 export const sharedSkillId = (animalId: string, kind: SharedKind) => `${animalId}.${kind}`;
+export const companionSkillId = (animalId: string, kind: CompanionSharedKind) => `${animalId}.companion.${kind}`;
+export const companionSignatureId = (animalId: string) => `${animalId}.companion.signature`;
 
 const fillAnimal = (skillId: string, animalId: string) => skillId.replace('{animal}', animalId);
 
@@ -32,6 +35,48 @@ export function getAnimalSkills(animal: AnimalDef): SkillDef[] {
 export function findSkill(animal: AnimalDef, skillId: string): SkillDef | undefined {
   if (skillId === STAND_TOGETHER.id) return STAND_TOGETHER;
   return getAnimalSkills(animal).find((s) => s.id === skillId);
+}
+
+/** Build the companion's own 12 moves: 11 from its pool (template + flavor, see
+ * data/companionSkills.ts) and 1 signature (templated numbers, per-animal name/flavor) - a
+ * genuinely different, support/healing-leaning kit from Mahery's, not the same moves
+ * independently leveled. */
+export function getCompanionSkills(animal: AnimalDef): SkillDef[] {
+  const shared = COMPANION_SHARED_KINDS.map<SkillDef>((kind) => {
+    const t = COMPANION_SHARED_SKILLS[kind];
+    const flavor = animal.companionSkillFlavor[kind];
+    return {
+      id: companionSkillId(animal.id, kind),
+      name: flavor.name,
+      flavor: flavor.flavor,
+      icon: t.icon,
+      anim: t.anim,
+      kind: 'shared',
+      sharedKind: kind,
+      target: t.target,
+      ranks: t.ranks,
+      requires: t.requires?.map((r) => ({ ...r, skillId: fillAnimal(r.skillId, animal.id) })),
+      minLevel: t.minLevel,
+    };
+  });
+  const signature: SkillDef = {
+    id: companionSignatureId(animal.id),
+    name: animal.companionSignatureFlavor.name,
+    flavor: animal.companionSignatureFlavor.flavor,
+    icon: 'pack',
+    anim: 'cast',
+    kind: 'unique',
+    maxRank: 5,
+    target: 'ally',
+    ranks: COMPANION_SIGNATURE_RANKS,
+    requires: COMPANION_FINISHERS.map((kind) => ({ skillId: companionSkillId(animal.id, kind), rank: 1 })),
+    minLevel: 2,
+  };
+  return [...shared, signature];
+}
+
+export function findCompanionSkill(animal: AnimalDef, skillId: string): SkillDef | undefined {
+  return getCompanionSkills(animal).find((s) => s.id === skillId);
 }
 
 export function resolveSkill(def: SkillDef, rank: number): ActiveSkill {
@@ -90,6 +135,21 @@ export function resolveActionBar(
   return actionBar.map((id) => {
     if (!id) return null;
     const def = findSkill(animal, id);
+    const rank = skillRanks[id] ?? 0;
+    if (!def || rank < 1) return null;
+    return resolveSkill(def, rank);
+  });
+}
+
+/** The companion's own equipped moves (see getCompanionSkills), resolved at current rank. */
+export function resolveCompanionActionBar(
+  animal: AnimalDef,
+  actionBar: (string | null)[],
+  skillRanks: Record<string, number>,
+): (ActiveSkill | null)[] {
+  return actionBar.map((id) => {
+    if (!id) return null;
+    const def = findCompanionSkill(animal, id);
     const rank = skillRanks[id] ?? 0;
     if (!def || rank < 1) return null;
     return resolveSkill(def, rank);

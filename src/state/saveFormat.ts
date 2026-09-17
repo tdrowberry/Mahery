@@ -5,7 +5,7 @@ import {
   ACTION_BAR_SLOTS, BASE_ATTRIBUTES, STARTING_ABILITY_POINTS, STARTING_ATTRIBUTE_POINTS,
   totalAbilityPointsAtLevel,
 } from '../data/progression';
-import { sharedSkillId } from '../engine/skills';
+import { companionSkillId, sharedSkillId } from '../engine/skills';
 
 // Save file format. Bump SAVE_VERSION and extend migrate() when the shape changes.
 // Battle state is never saved.
@@ -145,6 +145,9 @@ export function createNewSave(animalId: AnimalId): SaveFile {
   const basic = sharedSkillId(animalId, 'basicStrike');
   const actionBar: (string | null)[] = Array(ACTION_BAR_SLOTS).fill(null);
   actionBar[0] = basic;
+  const companionBasic = companionSkillId(animalId, 'nudge');
+  const companionActionBar: (string | null)[] = Array(ACTION_BAR_SLOTS).fill(null);
+  companionActionBar[0] = companionBasic;
   return {
     version: SAVE_VERSION,
     savedAt: new Date().toISOString(),
@@ -162,8 +165,8 @@ export function createNewSave(animalId: AnimalId): SaveFile {
     },
     companion: {
       abilityPoints: STARTING_ABILITY_POINTS,
-      skillRanks: { [basic]: 1 },
-      actionBar: [...actionBar],
+      skillRanks: { [companionBasic]: 1 },
+      actionBar: companionActionBar,
     },
     story: { chapter: 1, stage: 1, clearedStages: [], flags: {} },
     inventory: { items: [], necklace: Array(NECKLACE_SLOTS).fill(null) },
@@ -224,14 +227,14 @@ export function migrate(raw: unknown): SaveFile | null {
       // The companion's tree is brand new - back it with the same Ability Point budget Mahery
       // would have earned by this level (see totalAbilityPointsAtLevel) rather than zero, so a
       // save that's already deep into the story doesn't suddenly have a companion stuck on
-      // Basic Strike. Nothing pre-spent: the player picks the build fresh.
-      const basic = sharedSkillId(s.animalId, 'basicStrike');
+      // Nudge. Nothing pre-spent: the player picks the build fresh.
+      const companionBasic = companionSkillId(s.animalId, 'nudge');
       const actionBar: (string | null)[] = Array(ACTION_BAR_SLOTS).fill(null);
-      actionBar[0] = basic;
+      actionBar[0] = companionBasic;
       return {
         ...s,
         version: 4,
-        companion: { abilityPoints: totalAbilityPointsAtLevel(s.mahery.level), skillRanks: { [basic]: 1 }, actionBar },
+        companion: { abilityPoints: totalAbilityPointsAtLevel(s.mahery.level), skillRanks: { [companionBasic]: 1 }, actionBar },
       };
     }
     case 4: {
