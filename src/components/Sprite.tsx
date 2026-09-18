@@ -703,7 +703,7 @@ const PHOTO_SETS: Partial<Record<ArtId, string[]>> = {
   // at small sizes; real reference art wins whenever it's a reasonable fit).
   oldChief: photoSet('/art/mahery/wolf'),
 };
-const PHOTO_CYCLE_STEP_SECONDS = 3;
+const PHOTO_CYCLE_STEP_SECONDS = 8;
 
 export function Sprite({ art, color, size = 160, dimmed, flip, className = '', title, onClick, delay = 0, pose, clipSrc, clipKey, clipPreMirrored }: SpriteProps) {
   // Namespace this instance's gradient ids so two sprites on screen at once (e.g. the bond
@@ -799,22 +799,24 @@ export function Sprite({ art, color, size = 160, dimmed, flip, className = '', t
   );
 }
 
+/** Anim styles that close real distance to a target and back - see atk-hop in global.css. */
+function isTravelStyle(anim: AnimStyle | undefined): boolean {
+  return anim === 'strike' || anim === 'charge' || anim === 'venom' || anim === 'diveStrike';
+}
+
 /**
- * CSS class for the caster's one-shot attack animation, keyed by skill.anim and which side of
- * the field the unit is on (player units lunge right toward enemies; enemy units lunge left
- * toward the player, matching how they're already positioned and flipped to face each other).
+ * CSS class for the caster's one-shot attack motion, keyed by anim style. Travel styles (hop to
+ * the target, hold, hop back) all share one shape - atk-hop - parametrized at runtime by the
+ * --hop-dx/--hop-dy custom properties UnitSprite sets (see the comment on atk-hop itself for why
+ * this is plain CSS and not the Web Animations API this used to be). Self/AoE/leap styles never
+ * travel and keep their own simpler in-place keyframes.
  */
-function attackClassFor(anim: AnimStyle | undefined, side: Unit['side']): string {
-  if (!anim) return '';
-  const dir = side === 'enemy' ? 'l' : 'r';
+function attackClassFor(anim: AnimStyle | undefined): string {
   switch (anim) {
-    case 'strike': return `atk-strike-${dir}`;
-    case 'charge': return `atk-charge-${dir}`;
-    case 'venom': return `atk-venom-${dir}`;
-    case 'diveStrike': return `atk-dive-strike-${dir}`;
     case 'cast': return 'atk-cast';
     case 'aoe': return 'atk-aoe';
     case 'dive': return 'atk-dive-up';
+    default: return isTravelStyle(anim) ? 'atk-hop' : '';
   }
 }
 
@@ -850,10 +852,11 @@ interface UnitSpriteProps {
   /** null hides the label entirely */
   label?: string | null;
   delay?: number;
-  /** Real on-screen px distance from this unit's slot to its lastAction target's slot, measured
-   * by BattleScreen. Undefined for untargeted moves (self/ally-cast, aoe) or before both slots
-   * are measurable - the attack CSS falls back to its old small in-place lunge in that case. */
-  travelX?: number;
+  /** Real on-screen px distance (horizontal, vertical) from this unit's slot to its lastAction
+   * target's slot, measured by BattleScreen. Undefined for untargeted moves (self/ally-cast,
+   * aoe) or before both slots are measurable - the attacker then just plays its clip in place. */
+  travelDx?: number;
+  travelDy?: number;
   /** How long (ms) this unit should sit on its current hit before actually showing the flinch/
    * impact-flash/floating number - BattleScreen computes this from whichever attacker is
    * currently traveling toward this unit, via attackTimingFor, so the "hit" reads as landing
@@ -862,36 +865,44 @@ interface UnitSpriteProps {
   hitDelayMs?: number;
 }
 
-/** How long the attacker holds its "windup/impact" flavor before the travel-distance-scaled
- * return trip, for anim styles that don't have a hand-animated clip driving the timing instead. */
-const BASE_ANIM_MS: Partial<Record<AnimStyle, number>> = { strike: 500, charge: 750, venom: 550, diveStrike: 650 };
-/** Extra animation time per px of real travel, so a cross-field dash doesn't play at the same
- * speed as the old few-tens-of-px lunge - slow enough to actually watch the character cross the
- * field, not a blur. */
-const TRAVEL_MS_PER_PX = 0.75;
-/** How far into the total swing (0..1) the attacker actually reaches the target and lands the
- * hit, per anim style - matches the peak/full-reach keyframe percentage already used for each
- * style's -r/-l CSS (see global.css: strike 55%, charge 48%, venom 60%, diveStrike 78%). Used to
- * time the target's hit reaction to the moment of arrival, not the instant the engine resolves. */
-const IMPACT_FRACTION: Partial<Record<AnimStyle, number>> = { strike: 0.55, charge: 0.48, venom: 0.6, diveStrike: 0.78 };
+/** How long the attacker holds at the target and plays its attack, for anim styles that don't
+ * have a hand-animated clip driving the timing instead - a calm, unhurried beat rather than a
+ * blur, since the clip (when there is one) is what actually carries the attack's flavor now. */
+const HOLD_MS_FALLBACK = 600;
+/** How long the hop there (and, symmetrically, the hop back) takes per px of real distance -
+ * deliberately unhurried so crossing the field reads as a clean, readable move rather than a
+ * blur, with a floor so even a short hop between neighboring slots still reads as a hop. */
+const TRAVEL_MS_PER_PX = 1.05;
+const MIN_TRAVEL_MS = 320;
+/** How far into the hold (0..1) the attack actually lands, for timing the target's hit reaction
+ * to when the attacker is genuinely standing at the target rather than still mid-swing. */
+const IMPACT_FRACTION_OF_HOLD = 0.45;
 
-/** The attacking unit's own swing timing: total time for the whole out-and-back animation, and
- * how far into that the impact actually lands. Shared by UnitSprite (to time its own travel
- * animation) and BattleScreen (to time the target's hit reaction to match) so the two can never
- * drift out of sync with each other. */
-export function attackTimingFor(unit: Unit, travelX: number | undefined): { totalMs: number; impactMs: number } | undefined {
+/** The attacking unit's own timing: how long the hop there takes, how long it then holds at the
+ * target playing the attack, and the combined total (the hop back mirrors the hop there). Shared
+ * by UnitSprite (to actually run the hop and hold the clip) and BattleScreen (to time the
+ * target's hit reaction to match) so the two can never drift out of sync with each other. */
+export function attackTimingFor(unit: Unit, distance: number | undefined) {
   const anim = unit.lastAction?.anim;
   if (!anim) return undefined;
   const clip = combatAnimationFor(unit.art, { id: unit.lastAction?.skillId, name: unit.lastAction?.name, anim });
-  const travelMs = travelX ? Math.round(travelX * TRAVEL_MS_PER_PX) : 0;
-  const baseMs = clip?.ms ?? BASE_ANIM_MS[anim];
-  if (baseMs == null) return undefined;
-  const totalMs = baseMs + travelMs;
-  return { totalMs, impactMs: Math.round(totalMs * (IMPACT_FRACTION[anim] ?? 0.5)) };
+  const holdMs = clip?.ms ?? HOLD_MS_FALLBACK;
+  if (!isTravelStyle(anim)) {
+    // Self/AoE/leap styles never travel - just the in-place beat (still clip-timed if there is one).
+    return { totalMs: holdMs, impactMs: Math.round(holdMs * IMPACT_FRACTION_OF_HOLD), travelInMs: 0, holdMs };
+  }
+  const travelInMs = distance ? Math.max(MIN_TRAVEL_MS, Math.round(distance * TRAVEL_MS_PER_PX)) : 0;
+  return {
+    totalMs: travelInMs * 2 + holdMs,
+    impactMs: travelInMs + Math.round(holdMs * IMPACT_FRACTION_OF_HOLD),
+    travelInMs,
+    holdMs,
+  };
 }
 
+
 /** A combat unit's figure with floating damage numbers and a name label. */
-export function UnitSprite({ unit, size = 170, active, targetable, onClick, label, delay, travelX, hitDelayMs }: UnitSpriteProps) {
+export function UnitSprite({ unit, size = 170, active, targetable, onClick, label, delay, travelDx, travelDy, hitDelayMs }: UnitSpriteProps) {
   const down = unit.health <= 0;
   const airborne = !down && unit.statuses.some((st) => st.id === 'airborne');
   const charging = !down && unit.statuses.some((st) => st.id === 'charging');
@@ -904,12 +915,15 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
     airborne ? 'airborne' : '', charging ? 'charging' : '', unit.corrupted ? 'corrupted-kin' : '',
   ].filter(Boolean).join(' ');
   const hit = unit.lastHit;
-  const attackCls = attackClassFor(unit.lastAction?.anim, unit.side);
+  const anim = unit.lastAction?.anim;
+  const attackCls = attackClassFor(anim);
   const attackAnimClip = combatAnimationFor(unit.art, unit.lastAction ? {
     id: unit.lastAction.skillId,
     name: unit.lastAction.name,
     anim: unit.lastAction.anim,
   } : undefined);
+  const distance = travelDx != null || travelDy != null ? Math.hypot(travelDx ?? 0, travelDy ?? 0) : undefined;
+  const timing = attackTimingFor(unit, distance);
   // Resting pose when there's nothing more specific to show - loops on its own via the file's
   // own embedded loop count, no JS timing needed.
   const idleClip = idleClipFor(unit.art);
@@ -937,17 +951,18 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
     const t = setTimeout(() => setHitFlash(false), 1000);
     return () => clearTimeout(t);
   }, [shownHit?.seq]);
-  // The clip plays out once for this action and then the sprite settles back to the normal
-  // static-photo presentation, same lifecycle as hitFlash above.
+  // The clip only shows once the attacker has actually arrived (travelInMs in) and plays out for
+  // its own duration from there, so the character reads as walking up in its resting pose, THEN
+  // striking - not striking mid-stride. Same settle-back lifecycle as hitFlash above otherwise.
   const [playingClip, setPlayingClip] = useState<{ src: string; seq: number; preMirrored?: boolean } | null>(null);
   useEffect(() => {
-    if (!attackAnimClip) {
-      setPlayingClip(null);
-      return;
-    }
-    setPlayingClip({ src: attackAnimClip.src, seq: unit.lastAction?.seq ?? 0, preMirrored: attackAnimClip.preMirrored });
-    const t = setTimeout(() => setPlayingClip(null), attackAnimClip.ms);
-    return () => clearTimeout(t);
+    if (!attackAnimClip || !timing) { setPlayingClip(null); return; }
+    const seq = unit.lastAction?.seq ?? 0;
+    const showTimer = setTimeout(() => {
+      setPlayingClip({ src: attackAnimClip.src, seq, preMirrored: attackAnimClip.preMirrored });
+    }, timing.travelInMs);
+    const hideTimer = setTimeout(() => setPlayingClip(null), timing.travelInMs + attackAnimClip.ms);
+    return () => { clearTimeout(showTimer); clearTimeout(hideTimer); };
   }, [unit.lastAction?.seq]);
   // What the sprite actually shows right now, in priority order: a currently-playing attack
   // beats a death clip (once down) beats the looping idle, falling back to the old static-photo
@@ -962,11 +977,20 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
     ? { src: idleClip.src, preMirrored: idleClip.preMirrored, key: 'idle' }
     : undefined;
   const pose: 'front' | 'toward' = active || hitFlash ? 'toward' : 'front';
-  const timing = attackTimingFor(unit, travelX);
-  const anchorStyle = (timing != null || travelX != null) ? {
+  // atk-hop's shape (hop out, hold, hop back) is fixed CSS - its hold can't be exactly the
+  // clip's own runtime duration the way a JS-driven animation could manage, but CSS keyframe
+  // animations are the one thing in this whole sprite system proven to actually run frame by
+  // frame in every environment this game has been tested in; the Web Animations API this used to
+  // be does not (its timeline just never advances here, confirmed directly - getAnimations()
+  // reports "running" but currentTime stuck at 0 for seconds on end, matching the same
+  // rAF/compositing gap other animation work in this project has already hit). --hop-dx/--hop-dy
+  // carry the real, signed, measured distance; --hop-glow lights venom's poison tint mid-hold.
+  const hasHop = isTravelStyle(anim) && (travelDx || travelDy);
+  const anchorStyle = {
     ...(timing != null ? { animationDuration: `${timing.totalMs}ms` } : {}),
-    ...(travelX != null ? { '--travel-x': `${travelX}px` } : {}),
-  } as CSSProperties : undefined;
+    ...(hasHop ? { '--hop-dx': `${travelDx ?? 0}px`, '--hop-dy': `${travelDy ?? 0}px` } : {}),
+    ...(hasHop && anim === 'venom' ? { '--hop-glow': 'drop-shadow(0 0 11px #9ad14a)' } : {}),
+  } as CSSProperties;
   return (
     <div className="sprite-wrap">
       <div

@@ -225,8 +225,8 @@ select {
 /* A hand-animated attack clip standing in for the static photo - always fully shown, no
    cycle/drift, since the clip itself is already doing the motion. */
 .photo-sprite-layer.atk-clip-layer { opacity: 1; }
-.photo-sprite-layer.cycle-3 { animation: photo-cycle-3 10s ease-in-out infinite; }
-.photo-sprite-layer.cycle-2 { animation: photo-cycle-2 7s ease-in-out infinite; }
+.photo-sprite-layer.cycle-3 { animation: photo-cycle-3 27s ease-in-out infinite; }
+.photo-sprite-layer.cycle-2 { animation: photo-cycle-2 19s ease-in-out infinite; }
 @keyframes photo-cycle-3 {
   0%, 16% { opacity: 1; transform: translateX(0) scale(1); }
   40%, 93% { opacity: 0; transform: translateX(var(--drift, 0)) scale(0.94); }
@@ -297,64 +297,30 @@ select {
 @keyframes floatUp { 0% { opacity: 0; translate: 0 10px; } 15% { opacity: 1; } 100% { opacity: 0; translate: 0 -46px; } }
 
 /* ---------- attack animations ---------- */
-/* Player units sit on the left and face right; enemy units sit on the right, flipped to face
-   left. Every directional attack now travels the real distance to its actual target and back -
-   BattleScreen measures the on-screen gap between the attacker's and target's slots and sets
-   --travel-x (a positive px magnitude) on .attack-anchor; -r keyframes use it as-is, -l negates
-   it, so the same measured distance drives both directions. The px fallback in each var() is the
-   old fixed short-lunge distance, kept so anything without a measurable target (or the rare unit
-   with no slot ref yet) still animates sensibly in place instead of not moving at all. Only the
-   horizontal reach scales with distance; the rotation/scale/vertical "flavor" per style is
-   unchanged - the character should look the same mid-swing whether the target is near or far,
-   just travel further to reach it. .attack-anchor wraps the sprite so its own idle bob (a
-   separate `translate` property on .sprite) never fights this wrapper's `transform` animation. */
-@keyframes atk-strike-r {
-  0%   { transform: translate(0,0) rotate(0deg); }
-  35%  { transform: translate(calc(var(--travel-x, 24px) * 0.833),-2px) rotate(-4deg); }
-  55%  { transform: translate(var(--travel-x, 24px),0) rotate(2deg); }
-  100% { transform: translate(0,0) rotate(0deg); }
-}
-@keyframes atk-strike-l {
-  0%   { transform: translate(0,0) rotate(0deg); }
-  35%  { transform: translate(calc(var(--travel-x, 24px) * -0.833),-2px) rotate(4deg); }
-  55%  { transform: translate(calc(var(--travel-x, 24px) * -1),0) rotate(-2deg); }
-  100% { transform: translate(0,0) rotate(0deg); }
-}
-.attack-anchor.atk-strike-r { animation: atk-strike-r 0.45s ease-out; }
-.attack-anchor.atk-strike-l { animation: atk-strike-l 0.45s ease-out; }
+/* .attack-anchor wraps the sprite so its own idle bob (a separate `translate` property on
+   .sprite) never fights this wrapper's `transform` animation. */
 
-/* charge: rears up, leaps in low with the head down, lands on the hit - the moose's antlers. */
-@keyframes atk-charge-r {
-  0%   { transform: translate(0,0) rotate(0deg) scale(1); }
-  22%  { transform: translate(calc(var(--travel-x, 58px) * 0.138),-26px) rotate(-12deg) scale(1.04); }
-  48%  { transform: translate(var(--travel-x, 58px),-8px) rotate(16deg) scale(1.1); }
-  64%  { transform: translate(calc(var(--travel-x, 58px) * 0.931),4px) rotate(10deg) scale(1.05); }
-  100% { transform: translate(0,0) rotate(0deg) scale(1); }
-}
-@keyframes atk-charge-l {
-  0%   { transform: translate(0,0) rotate(0deg) scale(1); }
-  22%  { transform: translate(calc(var(--travel-x, 58px) * -0.138),-26px) rotate(12deg) scale(1.04); }
-  48%  { transform: translate(calc(var(--travel-x, 58px) * -1),-8px) rotate(-16deg) scale(1.1); }
-  64%  { transform: translate(calc(var(--travel-x, 58px) * -0.931),4px) rotate(-10deg) scale(1.05); }
-  100% { transform: translate(0,0) rotate(0deg) scale(1); }
-}
-.attack-anchor.atk-charge-r { animation: atk-charge-r 0.65s cubic-bezier(.3,.1,.3,1); }
-.attack-anchor.atk-charge-l { animation: atk-charge-l 0.65s cubic-bezier(.3,.1,.3,1); }
-
-@keyframes atk-venom-r {
+/* Strike/charge/venom/diveStrike (anything that closes real distance to a target) all share one
+   shape: hop out, hold at the target, hop back - a calm, readable beat instead of the old lunge-
+   and-swing-at-once arc, with the actual attack (the hand-animated clip, or nothing for units
+   without one) only showing once the hop-out is done, timed in Sprite.tsx. --hop-dx/--hop-dy
+   (set per-attack by UnitSprite, real signed px) carry both the direction AND the distance, so
+   this one keyframe set covers every attacker/target pair - no more separate -r/-l variants or
+   per-style tuning, since the clip itself is what actually carries each move's flavor now.
+   The hold's length is only approximate (a fixed 25%-75% of the total, not literally the clip's
+   exact runtime duration) rather than exact-to-the-frame: a runtime-computed hold length needs
+   the Web Animations API, whose timeline does not reliably advance in every environment this
+   game runs in (confirmed directly - see the comment on hasHop in Sprite.tsx), where a plain CSS
+   @keyframes animation like this one has been the one thing proven to actually run everywhere. */
+@keyframes atk-hop {
   0%   { transform: translate(0,0); filter: none; }
-  40%  { transform: translate(calc(var(--travel-x, 19px) * 0.842),0); filter: drop-shadow(0 0 7px #9ad14a); }
-  60%  { transform: translate(var(--travel-x, 19px),0); filter: drop-shadow(0 0 11px #9ad14a); }
+  12%  { transform: translate(calc(var(--hop-dx, 0px) * 0.5), calc(var(--hop-dy, 0px) * 0.5 - 16px)); }
+  25%  { transform: translate(var(--hop-dx, 0px), var(--hop-dy, 0px)); filter: var(--hop-glow, none); }
+  75%  { transform: translate(var(--hop-dx, 0px), var(--hop-dy, 0px)); filter: var(--hop-glow, none); }
+  88%  { transform: translate(calc(var(--hop-dx, 0px) * 0.5), calc(var(--hop-dy, 0px) * 0.5 - 16px)); }
   100% { transform: translate(0,0); filter: none; }
 }
-@keyframes atk-venom-l {
-  0%   { transform: translate(0,0); filter: none; }
-  40%  { transform: translate(calc(var(--travel-x, 19px) * -0.842),0); filter: drop-shadow(0 0 7px #9ad14a); }
-  60%  { transform: translate(calc(var(--travel-x, 19px) * -1),0); filter: drop-shadow(0 0 11px #9ad14a); }
-  100% { transform: translate(0,0); filter: none; }
-}
-.attack-anchor.atk-venom-r { animation: atk-venom-r 0.5s ease-out; }
-.attack-anchor.atk-venom-l { animation: atk-venom-l 0.5s ease-out; }
+.attack-anchor.atk-hop { animation: atk-hop 1.2s ease-in-out; }
 
 /* cast: self/ally skills - a pulse of light, no travel. */
 @keyframes atk-cast {
@@ -381,21 +347,6 @@ select {
   100% { transform: translateY(-20px) scale(0.94); opacity: 0.92; }
 }
 .attack-anchor.atk-dive-up { animation: atk-dive-up 0.6s ease-out forwards; }
-
-@keyframes atk-dive-strike-r {
-  0%   { transform: translate(0,-24px) scale(0.9); }
-  50%  { transform: translate(calc(var(--travel-x, 46px) * 0.652),-30px) scale(0.95); }
-  78%  { transform: translate(var(--travel-x, 46px),2px) scale(1.1); }
-  100% { transform: translate(0,0) scale(1); }
-}
-@keyframes atk-dive-strike-l {
-  0%   { transform: translate(0,-24px) scale(0.9); }
-  50%  { transform: translate(calc(var(--travel-x, 46px) * -0.652),-30px) scale(0.95); }
-  78%  { transform: translate(calc(var(--travel-x, 46px) * -1),2px) scale(1.1); }
-  100% { transform: translate(0,0) scale(1); }
-}
-.attack-anchor.atk-dive-strike-r { animation: atk-dive-strike-r 0.55s ease-in; }
-.attack-anchor.atk-dive-strike-l { animation: atk-dive-strike-l 0.55s ease-in; }
 
 /* target reaction: a quick recoil when a real hit lands, skipped on a dodge. */
 @keyframes flinch-shake {
@@ -523,12 +474,17 @@ select {
   background: rgba(150, 30, 30, 0.75); color: #fff; text-shadow: 0 1px 2px #000; border-top: 1px solid #ff8a7a; border-bottom: 1px solid #ff8a7a;
 }
 .banner.hint-banner { background: rgba(60, 50, 20, 0.8); border-color: var(--accent); color: var(--accent-2); }
-.field-party { position: absolute; left: 6%; bottom: 24px; display: flex; align-items: flex-end; gap: 20px; }
-.party-slot { cursor: pointer; padding: 6px; border-radius: 10px; transition: box-shadow 0.2s, background 0.2s; }
+/* Party and enemies are each laid out on their own depth: a slot's left/right/bottom/scale is
+   computed per-role in BattleScreen (slotStyleFor) and applied as inline style here, so the
+   hero reads as the closer, larger figure with the companion staggered further back and
+   smaller, mirrored on the enemy side (and further staggered into a front-two/back-one wedge
+   at three enemies) - see the comment above slotStyleFor for the actual coordinates. */
+.field-party, .field-enemies { position: absolute; inset: 0; }
+.party-slot, .enemy-slot { position: absolute; cursor: pointer; padding: 6px; border-radius: 10px; transition: box-shadow 0.2s, background 0.2s, left 0.2s, right 0.2s, bottom 0.2s; }
 .party-slot:hover { background: rgba(255,255,255,0.04); }
 .party-slot.directing { box-shadow: inset 0 0 0 2px var(--accent); background: rgba(217,160,91,0.08); }
 .dir-badge { color: var(--accent-2); margin-left: 3px; font-size: 10px; }
-.field-enemies { position: absolute; right: 6%; bottom: 24px; display: flex; align-items: flex-end; gap: 40px; }
+.enemy-slot { cursor: default; }
 .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.72); display: flex; align-items: center; justify-content: center; z-index: 5; }
 .overlay .box { background: var(--panel); border: 2px solid var(--accent); border-radius: 10px; padding: 24px 32px; text-align: center; }
 .overlay h2 { margin: 0 0 12px; font-family: var(--font-display); font-weight: 700; letter-spacing: 2px; text-transform: uppercase; font-size: 26px; color: var(--accent-2); text-shadow: 0 0 18px rgba(240,194,122,0.5); }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { resolveEncounter, useGame } from '../state/gameStore';
 import { CHAPTER_BACKGROUNDS } from '../data/backgrounds';
 import type { ActiveSkill, Stance, StatusId } from '../data/types';
@@ -10,6 +10,36 @@ import { ActionBar } from '../components/ActionBar';
 import { CombatLog } from '../components/CombatLog';
 
 const ENEMY_STEP_MS = 700;
+const BASE_SIZE = 165;
+
+/** A slot's position and depth: 'front' fighters read as closer (lower on the field, larger),
+ * 'back' ones read as farther away (higher up, smaller) - real depth staggering instead of a
+ * flat line-up, so an attacker's hop to its actual target reads as a clean, direct move instead
+ * of two lines of fighters just trading blows in place across a flat row. */
+interface SlotLayout { style: CSSProperties; scale: number }
+const front = (side: 'left' | 'right', x: number): SlotLayout => ({ style: { [side]: `${x}%`, bottom: '8%' }, scale: 1 });
+const back = (side: 'left' | 'right', x: number): SlotLayout => ({ style: { [side]: `${x}%`, bottom: '30%' }, scale: 0.78 });
+
+/** Mahery is always the closer, larger figure; the bonded companion is staggered back and to
+ * the side - smaller, further from the fight, exactly mirrored by the enemy front/back split
+ * below so connecting all four (with two enemies) traces a trapezoid: wide at the front line,
+ * narrower at the back. */
+function partySlotLayout(role: 'mahery' | 'companion'): SlotLayout {
+  return role === 'mahery' ? front('left', 10) : back('left', 22);
+}
+
+/** One enemy: centered, full size. Two: front/back mirroring the party exactly, completing the
+ * trapezoid. Three: two forward side by side (the wedge's base) and one staggered further back
+ * *and* further right - deeper into the enemy's own side - so the three form a triangle whose
+ * point leans away from the party, "pointing right" the way a real skirmish line would refuse
+ * its flank rather than stand in a flat row. */
+function enemySlotLayout(index: number, count: number): SlotLayout {
+  if (count <= 1) return front('right', 14);
+  if (count === 2) return index === 0 ? front('right', 10) : back('right', 22);
+  if (index === 0) return { style: { right: '32%', bottom: '6%' }, scale: 0.92 };
+  if (index === 1) return { style: { right: '12%', bottom: '6%' }, scale: 0.92 };
+  return { style: { right: '2%', bottom: '30%' }, scale: 0.75 };
+}
 const BUFFS: StatusId[] = ['strengthUp', 'instinctUp', 'speedUp', 'resolve', 'standTogether', 'guard', 'airborne'];
 const STANCES: { id: Stance; label: string; hint: string }[] = [
   { id: 'aggressive', label: 'Aggressive', hint: 'Always swings for the biggest hit it can afford.' },
@@ -106,10 +136,13 @@ export function BattleScreen() {
     battleSelect(unitId);
   };
 
-  // How far (in px) this unit's own last action should travel toward its target before playing
-  // the attack and coming back - undefined for moves with no target (self-buffs, aoe) or before
-  // both slots have measurable positions.
-  const travelXFor = (unit: Unit): number | undefined => {
+  // How far (in px, both axes) this unit's own last action should hop toward its target before
+  // playing the attack and hopping back - undefined for moves with no target (self-buffs, aoe)
+  // or before both slots have measurable positions. Now that the party and enemies are staggered
+  // front/back rather than lined up in a single row, a target can genuinely be up and to the
+  // side, not just further along the same line - so this pulls back proportionally along the
+  // real line between the two, rather than only ever shortening a horizontal gap.
+  const travelVectorFor = (unit: Unit): { dx: number; dy: number } | undefined => {
     const targetId = unit.lastAction?.targetId;
     if (!targetId) return undefined;
     const from = slotRefs.current[unit.id];
@@ -117,9 +150,13 @@ export function BattleScreen() {
     if (!from || !to) return undefined;
     const a = from.getBoundingClientRect();
     const b = to.getBoundingClientRect();
-    const dx = (b.left + b.width / 2) - (a.left + a.width / 2);
+    const rawDx = (b.left + b.width / 2) - (a.left + a.width / 2);
+    const rawDy = (b.top + b.height / 2) - (a.top + a.height / 2);
+    const dist = Math.hypot(rawDx, rawDy);
     const STOP_SHORT_PX = 90; // leave a gap so attacker and target don't fully overlap at full reach
-    return Math.max(0, Math.abs(dx) - STOP_SHORT_PX);
+    if (dist <= STOP_SHORT_PX) return { dx: 0, dy: 0 };
+    const scale = (dist - STOP_SHORT_PX) / dist;
+    return { dx: rawDx * scale, dy: rawDy * scale };
   };
 
   // The most recently resolved action across the whole battle - whoever's lastAction.seq matches
@@ -136,7 +173,8 @@ export function BattleScreen() {
       u.lastAction?.targetId === target.id && u.lastAction.seq === latestActionSeq
     ));
     if (!attacker) return 0;
-    return attackTimingFor(attacker, travelXFor(attacker))?.impactMs ?? 0;
+    const v = travelVectorFor(attacker);
+    return attackTimingFor(attacker, v ? Math.hypot(v.dx, v.dy) : undefined)?.impactMs ?? 0;
   };
 
   return (
@@ -168,29 +206,54 @@ export function BattleScreen() {
         {battle.banner && <div className="banner" data-testid="banner">{battle.banner}</div>}
         {armed && !battle.banner && <div className="banner hint-banner">Choose a target for {armed.name}.</div>}
         <div className="field-party">
-          <div ref={setSlotRef('mahery')} className={`party-slot ${battle.activeId === 'mahery' ? 'directing' : ''}`} onClick={() => select('mahery')} data-testid="select-mahery">
-            <UnitSprite unit={battle.units.mahery} size={battle.activeId === 'mahery' ? 175 : 145} active={battle.currentActor === 'mahery'} label={null} travelX={travelXFor(battle.units.mahery)} hitDelayMs={hitDelayFor(battle.units.mahery)} />
-          </div>
-          <div ref={setSlotRef('companion')} className={`party-slot ${battle.activeId === 'companion' ? 'directing' : ''}`} onClick={() => select('companion')} data-testid="select-companion">
-            <UnitSprite unit={battle.units.companion} size={battle.activeId === 'companion' ? 175 : 145} active={battle.currentActor === 'companion'} label={null} delay={0.5} travelX={travelXFor(battle.units.companion)} hitDelayMs={hitDelayFor(battle.units.companion)} />
-          </div>
+          {(['mahery', 'companion'] as const).map((role) => {
+            const { style, scale } = partySlotLayout(role);
+            const unit = battle.units[role];
+            const v = travelVectorFor(unit);
+            return (
+              <div
+                key={role}
+                ref={setSlotRef(role)}
+                style={style}
+                className={`party-slot ${battle.activeId === role ? 'directing' : ''}`}
+                onClick={() => select(role)}
+                data-testid={`select-${role}`}
+              >
+                <UnitSprite
+                  unit={unit}
+                  size={(battle.activeId === role ? BASE_SIZE + 25 : BASE_SIZE) * scale}
+                  active={battle.currentActor === role}
+                  label={null}
+                  delay={role === 'companion' ? 0.5 : 0}
+                  travelDx={v?.dx}
+                  travelDy={v?.dy}
+                  hitDelayMs={hitDelayFor(unit)}
+                />
+              </div>
+            );
+          })}
         </div>
         <div className="field-enemies">
-          {enemies.map((e, i) => (
-            <div key={e.id} ref={setSlotRef(e.id)} className="enemy-slot" data-testid={`enemy-${e.id}`}>
-              <UnitSprite
-                unit={e}
-                size={enemies.length > 1 ? 150 : 180}
-                active={battle.currentActor === e.id}
-                targetable={!!armed && playerTurn}
-                onClick={() => clickEnemy(e.id)}
-                label={armed && playerTurn && e.health > 0 ? e.name : null}
-                delay={0.4 * (i + 1)}
-                travelX={travelXFor(e)}
-                hitDelayMs={hitDelayFor(e)}
-              />
-            </div>
-          ))}
+          {enemies.map((e, i) => {
+            const { style, scale } = enemySlotLayout(i, enemies.length);
+            const v = travelVectorFor(e);
+            return (
+              <div key={e.id} ref={setSlotRef(e.id)} style={style} className="enemy-slot" data-testid={`enemy-${e.id}`}>
+                <UnitSprite
+                  unit={e}
+                  size={BASE_SIZE * scale}
+                  active={battle.currentActor === e.id}
+                  targetable={!!armed && playerTurn}
+                  onClick={() => clickEnemy(e.id)}
+                  label={armed && playerTurn && e.health > 0 ? e.name : null}
+                  delay={0.4 * (i + 1)}
+                  travelDx={v?.dx}
+                  travelDy={v?.dy}
+                  hitDelayMs={hitDelayFor(e)}
+                />
+              </div>
+            );
+          })}
         </div>
 
         {over && (
