@@ -12,14 +12,14 @@ export interface IdleDeathClip {
   preMirrored?: boolean;
 }
 
-// Every idle/death strip in the pack shares the same six-frame timing per state (see
-// idle-death-manifest.json): idle frames run 170ms each and loop; death runs
-// 140/120/130/150/180/850ms once, holding on the final grounded pose.
+// The V2 strips expand the six key poses into 20 rendered frames while preserving each
+// state's original total duration. Idle remains a 1.02-second loop; death remains a
+// 1.57-second one-shot with a long hold on the final grounded pose.
 const IDLE_MS = 170 * 6;
 const DEATH_MS = 140 + 120 + 130 + 150 + 180 + 850;
 
 const clip = (name: string, state: 'idle' | 'death', preMirrored?: boolean): IdleDeathClip => ({
-  src: `/art/animations/idle-death/${name}-${state}-animated-v1.webp`,
+  src: `/art/animations/idle-death/${name}-${state}-animated-v2.webp`,
   ms: state === 'idle' ? IDLE_MS : DEATH_MS,
   loop: state === 'idle',
   preMirrored,

@@ -2,7 +2,7 @@ import type { AnimStyle, ArtId } from './types';
 
 export interface CombatActionAnimation {
   src: string;
-  /** The source strips contain six frames timed to complete in about 0.91 seconds. */
+  /** The source strips contain 20 frames timed to complete in about 0.91 seconds. */
   ms: number;
   /** True when the source strip is already drawn left-facing (README2's humanoid-enemies/
    * enemy-animals categories, built for enemy use specifically) - the renderer's usual
@@ -20,7 +20,7 @@ export interface AnimationAction {
 
 const CLIP_MS = 910;
 const clip = (src: string, preMirrored?: boolean): CombatActionAnimation => ({ src, ms: CLIP_MS, preMirrored });
-const file = (folder: string, name: string, preMirrored?: boolean) => clip(`/art/animations/${folder}/${name}-animated-v1.webp`, preMirrored);
+const file = (folder: string, name: string, preMirrored?: boolean) => clip(`/art/animations/${folder}/${name}-animated-v2.webp`, preMirrored);
 
 export const HERO_ANIMALS = [
   'bear', 'moose', 'boar', 'wolf', 'elk', 'mountainLion', 'bobcat', 'buffalo', 'eagle', 'platypus', 'falcon',
