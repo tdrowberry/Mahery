@@ -93,10 +93,43 @@ export function BattleScreen() {
   const slotRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const setSlotRef = (id: string) => (el: HTMLDivElement | null) => { slotRefs.current[id] = el; };
 
-  // Enemy and auto-ally turns play out one beat at a time so the fight is readable.
+  // How far (in px, both axes) this unit's own last action should hop toward its target before
+  // playing the attack and hopping back - undefined for moves with no target (self-buffs, aoe)
+  // or before both slots have measurable positions. Defined up here (not down with the other
+  // battle-derived helpers below) because the enemy-turn pacing effect needs it too, and effects
+  // must run before the `if (!battle)` early return - it doesn't touch `battle` itself, only
+  // whatever unit it's given, so it's safe to define before battle is known non-null.
+  const travelVectorFor = (unit: Unit): { dx: number; dy: number } | undefined => {
+    const targetId = unit.lastAction?.targetId;
+    if (!targetId) return undefined;
+    const from = slotRefs.current[unit.id];
+    const to = slotRefs.current[targetId];
+    if (!from || !to) return undefined;
+    const a = from.getBoundingClientRect();
+    const b = to.getBoundingClientRect();
+    const rawDx = (b.left + b.width / 2) - (a.left + a.width / 2);
+    const rawDy = (b.top + b.height / 2) - (a.top + a.height / 2);
+    const dist = Math.hypot(rawDx, rawDy);
+    const STOP_SHORT_PX = 90; // leave a gap so attacker and target don't fully overlap at full reach
+    if (dist <= STOP_SHORT_PX) return { dx: 0, dy: 0 };
+    const scale = (dist - STOP_SHORT_PX) / dist;
+    return { dx: rawDx * scale, dy: rawDy * scale };
+  };
+
+  // Enemy and auto-ally turns play out one beat at a time, waiting exactly as long as whichever
+  // unit just acted needs to finish its own hop-out/hold/hop-back before letting the next beat
+  // start - a fixed pacing here was fine back when attacks were a quick in-place lunge, but now
+  // that they genuinely cross the field at a deliberately unhurried pace, a fixed delay shorter
+  // than the animation meant the next attacker could start hopping in while the last one was
+  // still mid-flight home. ENEMY_STEP_MS only remains as a fallback for the rare beat with
+  // nothing to time (a "hesitates" turn, or before any action has happened yet).
   useEffect(() => {
     if (!battle || battle.phase !== 'enemyTurn') return;
-    const t = setTimeout(() => battleAdvance(), ENEMY_STEP_MS);
+    const latestSeq = Math.max(0, ...Object.values(battle.units).map((u) => u.lastAction?.seq ?? 0));
+    const actor = Object.values(battle.units).find((u) => u.lastAction?.seq === latestSeq);
+    const v = actor ? travelVectorFor(actor) : undefined;
+    const stepMs = (actor && attackTimingFor(actor, v ? Math.hypot(v.dx, v.dy) : undefined)?.totalMs) || ENEMY_STEP_MS;
+    const t = setTimeout(() => battleAdvance(), stepMs);
     return () => clearTimeout(t);
   }, [battle, battleAdvance]);
 
@@ -134,29 +167,6 @@ export function BattleScreen() {
   const select = (unitId: 'mahery' | 'companion') => {
     if (unitId === battle.activeId) return;
     battleSelect(unitId);
-  };
-
-  // How far (in px, both axes) this unit's own last action should hop toward its target before
-  // playing the attack and hopping back - undefined for moves with no target (self-buffs, aoe)
-  // or before both slots have measurable positions. Now that the party and enemies are staggered
-  // front/back rather than lined up in a single row, a target can genuinely be up and to the
-  // side, not just further along the same line - so this pulls back proportionally along the
-  // real line between the two, rather than only ever shortening a horizontal gap.
-  const travelVectorFor = (unit: Unit): { dx: number; dy: number } | undefined => {
-    const targetId = unit.lastAction?.targetId;
-    if (!targetId) return undefined;
-    const from = slotRefs.current[unit.id];
-    const to = slotRefs.current[targetId];
-    if (!from || !to) return undefined;
-    const a = from.getBoundingClientRect();
-    const b = to.getBoundingClientRect();
-    const rawDx = (b.left + b.width / 2) - (a.left + a.width / 2);
-    const rawDy = (b.top + b.height / 2) - (a.top + a.height / 2);
-    const dist = Math.hypot(rawDx, rawDy);
-    const STOP_SHORT_PX = 90; // leave a gap so attacker and target don't fully overlap at full reach
-    if (dist <= STOP_SHORT_PX) return { dx: 0, dy: 0 };
-    const scale = (dist - STOP_SHORT_PX) / dist;
-    return { dx: rawDx * scale, dy: rawDy * scale };
   };
 
   // The most recently resolved action across the whole battle - whoever's lastAction.seq matches
