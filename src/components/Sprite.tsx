@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useState, type CSSProperties, type ReactElem
 import type { AnimStyle, ArtId } from '../data/types';
 import type { Unit } from '../engine/combat';
 import { combatAnimationFor } from '../data/combatAnimations';
+import { idleClipFor, deathClipFor } from '../data/idleDeathAnimations';
 
 // Illustrated vector art, drawn as inline SVG in a 120x160 box. Every figure is filled and
 // gradient-shaded (not just outlined) with a bold ink rim, textured fur/scale linework, and
@@ -644,12 +645,18 @@ interface SpriteProps {
    * that turns a fighter away from the fight; omit it to keep the old free-running showcase
    * cycle used by the bond-choice grid, where there's no "opponent" to face. */
   pose?: 'front' | 'toward';
-  /** A hand-animated clip URL to show instead of the static photo, for the moment an attack
-   * with a matching combat-animation entry is playing out. Undefined/null keeps the normal
-   * static-photo (or SVG figure) rendering. */
-  attackClip?: string | null;
-  /** Forces the browser to create a fresh image node when the same move is used twice. */
-  attackClipKey?: number;
+  /** A hand-animated clip URL to show instead of the static photo/limb-band presentation -
+   * whichever of the attack/death/idle clips currently applies (UnitSprite resolves the
+   * priority). Undefined/null keeps the old static-photo (or SVG figure) rendering. */
+  clipSrc?: string | null;
+  /** Identifies which clip instance this is, so React remounts the <img> (restarting playback)
+   * only when it's genuinely a new clip - a fresh attack, or switching between attack/death/idle -
+   * not on every unrelated re-render. */
+  clipKey?: string;
+  /** True when clipSrc is already drawn left-facing (see CombatActionAnimation.preMirrored) -
+   * cancels this element's own copy of the parent's enemy-side mirror so a pre-mirrored clip
+   * doesn't get flipped right back into facing the wrong way. */
+  clipPreMirrored?: boolean;
 }
 
 // Many characters are now rendered from real photo references instead of the hand-drawn
@@ -698,7 +705,7 @@ const PHOTO_SETS: Partial<Record<ArtId, string[]>> = {
 };
 const PHOTO_CYCLE_STEP_SECONDS = 3;
 
-export function Sprite({ art, color, size = 160, dimmed, flip, className = '', title, onClick, delay = 0, pose, attackClip, attackClipKey }: SpriteProps) {
+export function Sprite({ art, color, size = 160, dimmed, flip, className = '', title, onClick, delay = 0, pose, clipSrc, clipKey, clipPreMirrored }: SpriteProps) {
   // Namespace this instance's gradient ids so two sprites on screen at once (e.g. the bond
   // grid's 11 companions) never resolve to each other's <radialGradient> definitions.
   const rawId = useId();
@@ -710,6 +717,9 @@ export function Sprite({ art, color, size = 160, dimmed, flip, className = '', t
   // that element for as long as it runs, silently dropping the mirror - the bug that meant
   // enemies were never actually shown facing the party. A plain, unanimated wrapper box can't
   // lose the flip that way.
+  // (A 3D rotateY tilt used to live here to fake a turn toward the opponent on the old
+  // front-facing-only photos. The idle/death clip library draws each fighter genuinely in
+  // profile already, so that fake tilt is gone - real art wins over a CSS approximation.)
   const flipStyle: CSSProperties = { ...boxStyle, transform: flip ? 'scaleX(-1)' : undefined };
   const photos = PHOTO_SETS[art];
   // Every photo sprite gets its own random phase (crossfade), sway timing, and limb-sway timing,
@@ -745,8 +755,14 @@ export function Sprite({ art, color, size = 160, dimmed, flip, className = '', t
             aria-label={title}
           >
             <div className="photo-sprite-shadow" />
-            {attackClip ? (
-              <img key={`${attackClip}-${attackClipKey ?? 0}`} src={attackClip} alt="" className="photo-sprite-layer atk-clip-layer" />
+            {clipSrc ? (
+              <img
+                key={clipKey ?? clipSrc}
+                src={clipSrc}
+                alt=""
+                className="photo-sprite-layer atk-clip-layer"
+                style={flip && clipPreMirrored ? { transform: 'scaleX(-1)' } : undefined}
+              />
             ) : (
               <>
                 <div className="limb-band band-upper" style={{ ...limbVars, backgroundImage: `url(${photos[0]})` }} />
@@ -838,62 +854,117 @@ interface UnitSpriteProps {
    * by BattleScreen. Undefined for untargeted moves (self/ally-cast, aoe) or before both slots
    * are measurable - the attack CSS falls back to its old small in-place lunge in that case. */
   travelX?: number;
+  /** How long (ms) this unit should sit on its current hit before actually showing the flinch/
+   * impact-flash/floating number - BattleScreen computes this from whichever attacker is
+   * currently traveling toward this unit, via attackTimingFor, so the "hit" reads as landing
+   * the moment the attacker's sprite actually arrives instead of the instant the engine resolves
+   * it. Undefined/0 for hits with no in-flight attacker (heals, poison ticks, misc self effects). */
+  hitDelayMs?: number;
 }
 
 /** How long the attacker holds its "windup/impact" flavor before the travel-distance-scaled
  * return trip, for anim styles that don't have a hand-animated clip driving the timing instead. */
-const BASE_ANIM_MS: Partial<Record<AnimStyle, number>> = { strike: 450, charge: 650, venom: 500, diveStrike: 550 };
+const BASE_ANIM_MS: Partial<Record<AnimStyle, number>> = { strike: 500, charge: 750, venom: 550, diveStrike: 650 };
 /** Extra animation time per px of real travel, so a cross-field dash doesn't play at the same
- * speed as the old few-tens-of-px lunge - just proportionally longer, not a blur. */
-const TRAVEL_MS_PER_PX = 0.45;
+ * speed as the old few-tens-of-px lunge - slow enough to actually watch the character cross the
+ * field, not a blur. */
+const TRAVEL_MS_PER_PX = 0.75;
+/** How far into the total swing (0..1) the attacker actually reaches the target and lands the
+ * hit, per anim style - matches the peak/full-reach keyframe percentage already used for each
+ * style's -r/-l CSS (see global.css: strike 55%, charge 48%, venom 60%, diveStrike 78%). Used to
+ * time the target's hit reaction to the moment of arrival, not the instant the engine resolves. */
+const IMPACT_FRACTION: Partial<Record<AnimStyle, number>> = { strike: 0.55, charge: 0.48, venom: 0.6, diveStrike: 0.78 };
+
+/** The attacking unit's own swing timing: total time for the whole out-and-back animation, and
+ * how far into that the impact actually lands. Shared by UnitSprite (to time its own travel
+ * animation) and BattleScreen (to time the target's hit reaction to match) so the two can never
+ * drift out of sync with each other. */
+export function attackTimingFor(unit: Unit, travelX: number | undefined): { totalMs: number; impactMs: number } | undefined {
+  const anim = unit.lastAction?.anim;
+  if (!anim) return undefined;
+  const clip = combatAnimationFor(unit.art, { id: unit.lastAction?.skillId, name: unit.lastAction?.name, anim });
+  const travelMs = travelX ? Math.round(travelX * TRAVEL_MS_PER_PX) : 0;
+  const baseMs = clip?.ms ?? BASE_ANIM_MS[anim];
+  if (baseMs == null) return undefined;
+  const totalMs = baseMs + travelMs;
+  return { totalMs, impactMs: Math.round(totalMs * (IMPACT_FRACTION[anim] ?? 0.5)) };
+}
 
 /** A combat unit's figure with floating damage numbers and a name label. */
-export function UnitSprite({ unit, size = 170, active, targetable, onClick, label, delay, travelX }: UnitSpriteProps) {
+export function UnitSprite({ unit, size = 170, active, targetable, onClick, label, delay, travelX, hitDelayMs }: UnitSpriteProps) {
   const down = unit.health <= 0;
   const airborne = !down && unit.statuses.some((st) => st.id === 'airborne');
   const charging = !down && unit.statuses.some((st) => st.id === 'charging');
+  // The death clip (when this art has one) plays its own real collapse-to-the-ground motion, so
+  // the old CSS topple (rotate + translate, see .sprite.down in global.css) needs to step aside
+  // for it - has-death-clip is what does that. Grayscale/dim still layers on top either way.
+  const deathClip = down ? deathClipFor(unit.art) : undefined;
   const cls = [
-    down ? 'down' : '', active ? 'active-glow' : '', targetable && !down ? 'targetable' : '',
+    down ? 'down' : '', deathClip ? 'has-death-clip' : '', active ? 'active-glow' : '', targetable && !down ? 'targetable' : '',
     airborne ? 'airborne' : '', charging ? 'charging' : '', unit.corrupted ? 'corrupted-kin' : '',
   ].filter(Boolean).join(' ');
   const hit = unit.lastHit;
-  // A real hit shakes the target; a dodge or a killing blow (already collapsing) does not.
-  const flinch = !down && !!hit && hit.kind !== 'miss';
   const attackCls = attackClassFor(unit.lastAction?.anim, unit.side);
-  const clip = combatAnimationFor(unit.art, unit.lastAction ? {
+  const attackAnimClip = combatAnimationFor(unit.art, unit.lastAction ? {
     id: unit.lastAction.skillId,
     name: unit.lastAction.name,
     anim: unit.lastAction.anim,
   } : undefined);
-  const impact = hit && (hit.kind === 'damage' || hit.kind === 'crit') ? impactEffectFor(hit.effectAnim) : null;
+  // Resting pose when there's nothing more specific to show - loops on its own via the file's
+  // own embedded loop count, no JS timing needed.
+  const idleClip = idleClipFor(unit.art);
+  // The target doesn't actually get hit the instant the engine resolves the action - it gets hit
+  // when the attacker's sprite actually arrives. shownHit holds off on presenting the flinch,
+  // impact flash, and floating number until hitDelayMs has passed, so a target visibly reacts in
+  // step with the attack landing instead of flinching before the attacker has even set off.
+  const [shownHit, setShownHit] = useState<Unit['lastHit'] | undefined>(undefined);
+  useEffect(() => {
+    if (!hit) { setShownHit(undefined); return; }
+    const t = setTimeout(() => setShownHit(hit), hitDelayMs ?? 0);
+    return () => clearTimeout(t);
+  }, [hit?.seq]);
+  // A real hit shakes the target; a dodge or a killing blow (already collapsing) does not.
+  const flinch = !down && !!shownHit && shownHit.kind !== 'miss';
+  const impact = shownHit && (shownHit.kind === 'damage' || shownHit.kind === 'crit') ? impactEffectFor(shownHit.effectAnim) : null;
   // Two fighters should read as facing each other, not drift through a pose that turns one of
   // them away from the fight. Default to the resting 'front' pose; lean into the 'toward' (facing
   // the opponent) pose only while it's this unit's turn, or briefly after it lands/takes a hit -
   // so the pose changes because something happened, not on a constant timer.
   const [hitFlash, setHitFlash] = useState(false);
   useEffect(() => {
-    if (!hit) return;
+    if (!shownHit) return;
     setHitFlash(true);
     const t = setTimeout(() => setHitFlash(false), 1000);
     return () => clearTimeout(t);
-  }, [hit?.seq]);
+  }, [shownHit?.seq]);
   // The clip plays out once for this action and then the sprite settles back to the normal
   // static-photo presentation, same lifecycle as hitFlash above.
-  const [playingClip, setPlayingClip] = useState<{ src: string; seq: number } | null>(null);
+  const [playingClip, setPlayingClip] = useState<{ src: string; seq: number; preMirrored?: boolean } | null>(null);
   useEffect(() => {
-    if (!clip) {
+    if (!attackAnimClip) {
       setPlayingClip(null);
       return;
     }
-    setPlayingClip({ src: clip.src, seq: unit.lastAction?.seq ?? 0 });
-    const t = setTimeout(() => setPlayingClip(null), clip.ms);
+    setPlayingClip({ src: attackAnimClip.src, seq: unit.lastAction?.seq ?? 0, preMirrored: attackAnimClip.preMirrored });
+    const t = setTimeout(() => setPlayingClip(null), attackAnimClip.ms);
     return () => clearTimeout(t);
   }, [unit.lastAction?.seq]);
+  // What the sprite actually shows right now, in priority order: a currently-playing attack
+  // beats a death clip (once down) beats the looping idle, falling back to the old static-photo
+  // presentation when none apply. Keys are stable within each case (so idle/death don't restart
+  // themselves on every unrelated re-render) but distinct across cases, so switching between them
+  // - or into a fresh attack - always mounts a clean new <img> instead of reusing a stale one.
+  const shownClip = playingClip
+    ? { src: playingClip.src, preMirrored: playingClip.preMirrored, key: `atk-${playingClip.seq}` }
+    : deathClip
+    ? { src: deathClip.src, preMirrored: deathClip.preMirrored, key: 'death' }
+    : idleClip
+    ? { src: idleClip.src, preMirrored: idleClip.preMirrored, key: 'idle' }
+    : undefined;
   const pose: 'front' | 'toward' = active || hitFlash ? 'toward' : 'front';
-  const travelMs = travelX ? Math.round(travelX * TRAVEL_MS_PER_PX) : 0;
-  const baseMs = clip?.ms ?? (unit.lastAction?.anim && BASE_ANIM_MS[unit.lastAction.anim]);
-  const anchorStyle = (baseMs != null || travelX != null) ? {
-    ...(baseMs != null ? { animationDuration: `${baseMs + travelMs}ms` } : {}),
+  const timing = attackTimingFor(unit, travelX);
+  const anchorStyle = (timing != null || travelX != null) ? {
+    ...(timing != null ? { animationDuration: `${timing.totalMs}ms` } : {}),
     ...(travelX != null ? { '--travel-x': `${travelX}px` } : {}),
   } as CSSProperties : undefined;
   return (
@@ -903,7 +974,7 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
         className={`attack-anchor ${attackCls}`}
         style={anchorStyle}
       >
-        <div key={`hit-${hit?.seq ?? 0}`} className={`hit-frame ${flinch ? 'flinch' : ''}`}>
+        <div key={`hit-${shownHit?.seq ?? 0}`} className={`hit-frame ${flinch ? 'flinch' : ''}`}>
           <Sprite
             art={unit.art}
             color={unit.color}
@@ -914,8 +985,9 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
             onClick={targetable && !down ? onClick : undefined}
             delay={delay}
             pose={pose}
-            attackClip={playingClip?.src}
-            attackClipKey={playingClip?.seq}
+            clipSrc={shownClip?.src}
+            clipKey={shownClip?.key}
+            clipPreMirrored={shownClip?.preMirrored}
           />
           {impact === 'slash' && (
             <div className="impact-slash">
@@ -927,7 +999,7 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
           {impact === 'beam' && <div className={`impact-beam ${unit.side === 'enemy' ? 'from-left' : 'from-right'}`} />}
         </div>
       </div>
-      {hit && <span key={hit.seq} className={`float ${hit.kind}`}>{FLOAT_LABEL[hit.kind](hit.amount)}</span>}
+      {shownHit && <span key={shownHit.seq} className={`float ${shownHit.kind}`}>{FLOAT_LABEL[shownHit.kind](shownHit.amount)}</span>}
       {label !== null && <div className="sprite-label">{label ?? unit.name}</div>}
     </div>
   );

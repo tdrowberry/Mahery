@@ -5,7 +5,7 @@ import type { ActiveSkill, Stance, StatusId } from '../data/types';
 import {
   activeUnit, canSelect, needsTargetPick, otherPartyUnit, statusLabel, validTargets, type Unit,
 } from '../engine/combat';
-import { UnitSprite } from '../components/Sprite';
+import { UnitSprite, attackTimingFor } from '../components/Sprite';
 import { ActionBar } from '../components/ActionBar';
 import { CombatLog } from '../components/CombatLog';
 
@@ -122,6 +122,23 @@ export function BattleScreen() {
     return Math.max(0, Math.abs(dx) - STOP_SHORT_PX);
   };
 
+  // The most recently resolved action across the whole battle - whoever's lastAction.seq matches
+  // this is the one currently in motion, so a target only picks up a hit-delay from an attack
+  // that's genuinely still in flight toward it, not some earlier turn's stale lastAction.
+  const latestActionSeq = Math.max(0, ...Object.values(battle.units).map((u) => u.lastAction?.seq ?? 0));
+
+  // How long this unit should hold its hit reaction (flinch/impact flash/floating number) before
+  // showing it, timed to when whichever attacker is currently traveling toward it actually
+  // arrives - see attackTimingFor. 0 when nothing is currently attacking this unit (heals,
+  // poison ticks, and other hits with no in-flight attacker stay instant).
+  const hitDelayFor = (target: Unit): number => {
+    const attacker = Object.values(battle.units).find((u) => (
+      u.lastAction?.targetId === target.id && u.lastAction.seq === latestActionSeq
+    ));
+    if (!attacker) return 0;
+    return attackTimingFor(attacker, travelXFor(attacker))?.impactMs ?? 0;
+  };
+
   return (
     <div className="game arena">
       {/* top HUD: party left, enemies right, round in the middle */}
@@ -152,10 +169,10 @@ export function BattleScreen() {
         {armed && !battle.banner && <div className="banner hint-banner">Choose a target for {armed.name}.</div>}
         <div className="field-party">
           <div ref={setSlotRef('mahery')} className={`party-slot ${battle.activeId === 'mahery' ? 'directing' : ''}`} onClick={() => select('mahery')} data-testid="select-mahery">
-            <UnitSprite unit={battle.units.mahery} size={battle.activeId === 'mahery' ? 175 : 145} active={battle.currentActor === 'mahery'} label={null} travelX={travelXFor(battle.units.mahery)} />
+            <UnitSprite unit={battle.units.mahery} size={battle.activeId === 'mahery' ? 175 : 145} active={battle.currentActor === 'mahery'} label={null} travelX={travelXFor(battle.units.mahery)} hitDelayMs={hitDelayFor(battle.units.mahery)} />
           </div>
           <div ref={setSlotRef('companion')} className={`party-slot ${battle.activeId === 'companion' ? 'directing' : ''}`} onClick={() => select('companion')} data-testid="select-companion">
-            <UnitSprite unit={battle.units.companion} size={battle.activeId === 'companion' ? 175 : 145} active={battle.currentActor === 'companion'} label={null} delay={0.5} travelX={travelXFor(battle.units.companion)} />
+            <UnitSprite unit={battle.units.companion} size={battle.activeId === 'companion' ? 175 : 145} active={battle.currentActor === 'companion'} label={null} delay={0.5} travelX={travelXFor(battle.units.companion)} hitDelayMs={hitDelayFor(battle.units.companion)} />
           </div>
         </div>
         <div className="field-enemies">
@@ -170,6 +187,7 @@ export function BattleScreen() {
                 label={armed && playerTurn && e.health > 0 ? e.name : null}
                 delay={0.4 * (i + 1)}
                 travelX={travelXFor(e)}
+                hitDelayMs={hitDelayFor(e)}
               />
             </div>
           ))}

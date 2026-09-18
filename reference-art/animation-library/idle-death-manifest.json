@@ -1,0 +1,923 @@
+{
+  "version": 1,
+  "frame_count": 6,
+  "layout": "single horizontal row, chronological left-to-right",
+  "categories": {
+    "hero-hybrids": [
+      {
+        "name": "hero-bear-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "hero-bear-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "hero-boar-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "hero-boar-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "hero-bobcat-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "hero-bobcat-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "hero-buffalo-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "hero-buffalo-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "hero-eagle-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "hero-eagle-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "hero-elk-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "hero-elk-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "hero-falcon-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "hero-falcon-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "hero-moose-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "hero-moose-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "hero-mountainLion-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "hero-mountainLion-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "hero-platypus-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "hero-platypus-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "hero-wolf-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "hero-wolf-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      }
+    ],
+    "companion-animals": [
+      {
+        "name": "companion-bear-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "companion-bear-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "companion-boar-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "companion-boar-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "companion-bobcat-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "companion-bobcat-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "companion-buffalo-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "companion-buffalo-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "companion-eagle-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "companion-eagle-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "companion-elk-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "companion-elk-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "companion-falcon-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ],
+        "spritesheet": "companion-animals/companion-falcon-death-spritesheet-v1.png",
+        "animated_webp": "companion-animals/animated-webp/companion-falcon-death-animated-v1.webp",
+        "animated_gif": "companion-animals/animated-gif/companion-falcon-death-animated-v1.gif",
+        "frames": "companion-animals/individual-frames/companion-falcon-death"
+      },
+      {
+        "name": "companion-falcon-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "companion-moose-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "companion-moose-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "companion-mountainLion-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "companion-mountainLion-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "companion-platypus-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ],
+        "spritesheet": "companion-animals/companion-platypus-death-spritesheet-v1.png",
+        "animated_webp": "companion-animals/animated-webp/companion-platypus-death-animated-v1.webp",
+        "animated_gif": "companion-animals/animated-gif/companion-platypus-death-animated-v1.gif",
+        "frames": "companion-animals/individual-frames/companion-platypus-death"
+      },
+      {
+        "name": "companion-platypus-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ],
+        "spritesheet": "companion-animals/companion-platypus-idle-spritesheet-v1.png",
+        "animated_webp": "companion-animals/animated-webp/companion-platypus-idle-animated-v1.webp",
+        "animated_gif": "companion-animals/animated-gif/companion-platypus-idle-animated-v1.gif",
+        "frames": "companion-animals/individual-frames/companion-platypus-idle"
+      },
+      {
+        "name": "companion-wolf-death",
+        "state": "death",
+        "facing": "right",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "companion-wolf-idle",
+        "state": "idle",
+        "facing": "right",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      }
+    ],
+    "humanoid-enemies": [
+      {
+        "name": "enemy-humanoid-crocodile-death",
+        "state": "death",
+        "facing": "left",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "enemy-humanoid-crocodile-idle",
+        "state": "idle",
+        "facing": "left",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "enemy-humanoid-raven-death",
+        "state": "death",
+        "facing": "left",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "enemy-humanoid-raven-idle",
+        "state": "idle",
+        "facing": "left",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "enemy-humanoid-snake-death",
+        "state": "death",
+        "facing": "left",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "enemy-humanoid-snake-idle",
+        "state": "idle",
+        "facing": "left",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "enemy-humanoid-spider-death",
+        "state": "death",
+        "facing": "left",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "enemy-humanoid-spider-idle",
+        "state": "idle",
+        "facing": "left",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "enemy-humanoid-vulture-death",
+        "state": "death",
+        "facing": "left",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "enemy-humanoid-vulture-idle",
+        "state": "idle",
+        "facing": "left",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      }
+    ],
+    "enemy-animals": [
+      {
+        "name": "enemy-animal-crocodile-death",
+        "state": "death",
+        "facing": "left",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "enemy-animal-crocodile-idle",
+        "state": "idle",
+        "facing": "left",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "enemy-animal-raven-death",
+        "state": "death",
+        "facing": "left",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "enemy-animal-raven-idle",
+        "state": "idle",
+        "facing": "left",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "enemy-animal-snake-death",
+        "state": "death",
+        "facing": "left",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "enemy-animal-snake-idle",
+        "state": "idle",
+        "facing": "left",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "enemy-animal-spider-death",
+        "state": "death",
+        "facing": "left",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "enemy-animal-spider-idle",
+        "state": "idle",
+        "facing": "left",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      },
+      {
+        "name": "enemy-animal-vulture-death",
+        "state": "death",
+        "facing": "left",
+        "loop": false,
+        "durations_ms": [
+          140,
+          120,
+          130,
+          150,
+          180,
+          850
+        ]
+      },
+      {
+        "name": "enemy-animal-vulture-idle",
+        "state": "idle",
+        "facing": "left",
+        "loop": true,
+        "durations_ms": [
+          170,
+          170,
+          170,
+          170,
+          170,
+          170
+        ]
+      }
+    ]
+  }
+}

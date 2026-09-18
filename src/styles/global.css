@@ -187,6 +187,9 @@ select {
 .sprite-flip svg, .sprite-flip .photo-sprite { width: 100%; height: 100%; }
 @keyframes idle { 0%, 100% { translate: 0 0; } 50% { translate: 0 -4px; } }
 .sprite.down { filter: grayscale(1) brightness(0.45); animation: none; transform: rotate(80deg) translateY(30%); transform-origin: 50% 90%; }
+/* A real death clip already plays its own collapse-to-the-ground motion - the topple above
+   would fight it, so this cancels just the transform (dim/grayscale still applies). */
+.sprite.down.has-death-clip { transform: none; }
 .sprite.active-glow svg, .sprite.active-glow .photo-sprite { filter: drop-shadow(0 0 3px var(--accent)) drop-shadow(0 0 14px rgba(217,160,91,0.7)); }
 .sprite.targetable { cursor: pointer; }
 .sprite.targetable:hover { transform: scale(1.08); }

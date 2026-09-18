@@ -4,6 +4,12 @@ export interface CombatActionAnimation {
   src: string;
   /** The source strips contain six frames timed to complete in about 0.91 seconds. */
   ms: number;
+  /** True when the source strip is already drawn left-facing (README2's humanoid-enemies/
+   * enemy-animals categories, built for enemy use specifically) - the renderer's usual
+   * enemy-side mirror must be skipped for this clip, or a left-facing lunge gets mirrored right
+   * back into a right-facing one and the attacker appears to swing away from its target instead
+   * of into it. Hero/companion clips are drawn right-facing and still want the normal mirror. */
+  preMirrored?: boolean;
 }
 
 export interface AnimationAction {
@@ -13,13 +19,13 @@ export interface AnimationAction {
 }
 
 const CLIP_MS = 910;
-const clip = (src: string): CombatActionAnimation => ({ src, ms: CLIP_MS });
-const file = (folder: string, name: string) => clip(`/art/animations/${folder}/${name}-animated-v1.webp`);
+const clip = (src: string, preMirrored?: boolean): CombatActionAnimation => ({ src, ms: CLIP_MS, preMirrored });
+const file = (folder: string, name: string, preMirrored?: boolean) => clip(`/art/animations/${folder}/${name}-animated-v1.webp`, preMirrored);
 
-const HERO_ANIMALS = [
+export const HERO_ANIMALS = [
   'bear', 'moose', 'boar', 'wolf', 'elk', 'mountainLion', 'bobcat', 'buffalo', 'eagle', 'platypus', 'falcon',
 ] as const;
-type HeroAnimal = typeof HERO_ANIMALS[number];
+export type HeroAnimal = typeof HERO_ANIMALS[number];
 
 const COMPANION_ATTACKS: Record<HeroAnimal, { primary: string; special: string }> = {
   bear: { primary: 'bite-lunge', special: 'paw-swipe' },
@@ -35,7 +41,7 @@ const COMPANION_ATTACKS: Record<HeroAnimal, { primary: string; special: string }
   falcon: { primary: 'beak-strike', special: 'talon-dive' },
 };
 
-const ENEMY_SPECIES: Partial<Record<ArtId, string>> = {
+export const ENEMY_SPECIES: Partial<Record<ArtId, string>> = {
   'enemy-snake': 'snake',
   'enemy-spider': 'spider',
   'enemy-crocodile': 'crocodile',
@@ -84,7 +90,7 @@ function enemyAnimation(species: string, action: AnimationAction) {
   else if (action.anim === 'charge' || action.anim === 'diveStrike') move = 'headbutt';
   else if (action.anim === 'venom') move = 'claw-swipe';
   else move = 'bite';
-  return file('humanoid-enemies', `enemy-${species}-${move}`);
+  return file('humanoid-enemies', `enemy-${species}-${move}`, true);
 }
 
 /** Resolve a combat action to the matching one-shot WebP from README2's animation library. */
