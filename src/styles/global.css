@@ -222,9 +222,12 @@ select {
 }
 .photo-sprite-layer.drift-a { --drift: 14px; }
 .photo-sprite-layer.drift-b { --drift: -14px; }
-/* A hand-animated attack clip standing in for the static photo - always fully shown, no
-   cycle/drift, since the clip itself is already doing the motion. */
-.photo-sprite-layer.atk-clip-layer { opacity: 1; }
+/* Keep the decoded resting frame below one-shot clips and crossfade only after the overlay has
+   loaded. This removes the blank frame that used to appear when an attack/death image mounted. */
+.photo-sprite-layer.resting-clip-layer { opacity: 1; transition: opacity 90ms ease-out; }
+.photo-sprite-layer.resting-clip-layer.covered { opacity: 0; }
+.photo-sprite-layer.atk-clip-layer { opacity: 0; transition: opacity 90ms ease-out; }
+.photo-sprite-layer.atk-clip-layer.ready { opacity: 1; }
 .photo-sprite-layer.cycle-3 { animation: photo-cycle-3 27s ease-in-out infinite; }
 .photo-sprite-layer.cycle-2 { animation: photo-cycle-2 19s ease-in-out infinite; }
 @keyframes photo-cycle-3 {
@@ -264,7 +267,9 @@ select {
   position: absolute; inset: 0; background-repeat: no-repeat; background-position: bottom center; background-size: contain;
   animation-duration: var(--limb-dur, 3.6s); animation-delay: var(--limb-delay, 0s);
   animation-timing-function: ease-in-out; animation-iteration-count: infinite;
+  transition: opacity 90ms ease-out;
 }
+.limb-band.covered { opacity: 0; }
 .limb-band.band-upper { clip-path: inset(0 0 46% 0); transform-origin: 50% 54%; animation-name: limb-sway-upper; }
 .limb-band.band-lower { clip-path: inset(50% 0 0 0); transform-origin: 50% 50%; animation-name: limb-sway-lower; }
 @keyframes limb-sway-upper {
@@ -362,8 +367,8 @@ select {
   100% { filter: brightness(1); }
 }
 .hit-frame { position: relative; }
-.flinch { animation: flinch-shake 0.35s ease-in-out; animation-delay: 0.12s; }
-.flinch svg, .flinch .photo-sprite { animation: flinch-flash 0.35s ease-out; animation-delay: 0.12s; }
+.flinch { animation: flinch-shake 0.35s ease-in-out; }
+.flinch svg, .flinch .photo-sprite { animation: flinch-flash 0.35s ease-out; }
 
 /* Impact effects on the TARGET, keyed to the attacking skill's anim style (impactEffectFor in
    Sprite.tsx): a bladed/blunt hit crosses the target with three quick red slash marks; anything

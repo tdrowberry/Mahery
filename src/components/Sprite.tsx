@@ -657,6 +657,12 @@ interface SpriteProps {
    * cancels this element's own copy of the parent's enemy-side mirror so a pre-mirrored clip
    * doesn't get flipped right back into facing the wrong way. */
   clipPreMirrored?: boolean;
+  /** The looping idle clip stays mounted below one-shot attack/death clips. Keeping a decoded
+   * frame underneath prevents a white/empty flash while the next animated image decodes. */
+  restClipSrc?: string | null;
+  restClipPreMirrored?: boolean;
+  /** Fade the one-shot clip back to the resting layer just before it is removed. */
+  clipEnding?: boolean;
 }
 
 // Many characters are now rendered from real photo references instead of the hand-drawn
@@ -705,7 +711,7 @@ const PHOTO_SETS: Partial<Record<ArtId, string[]>> = {
 };
 const PHOTO_CYCLE_STEP_SECONDS = 8;
 
-export function Sprite({ art, color, size = 160, dimmed, flip, className = '', title, onClick, delay = 0, pose, clipSrc, clipKey, clipPreMirrored }: SpriteProps) {
+export function Sprite({ art, color, size = 160, dimmed, flip, className = '', title, onClick, delay = 0, pose, clipSrc, clipKey, clipPreMirrored, restClipSrc, restClipPreMirrored, clipEnding }: SpriteProps) {
   // Namespace this instance's gradient ids so two sprites on screen at once (e.g. the bond
   // grid's 11 companions) never resolve to each other's <radialGradient> definitions.
   const rawId = useId();
@@ -722,6 +728,12 @@ export function Sprite({ art, color, size = 160, dimmed, flip, className = '', t
   // profile already, so that fake tilt is gone - real art wins over a CSS approximation.)
   const flipStyle: CSSProperties = { ...boxStyle, transform: flip ? 'scaleX(-1)' : undefined };
   const photos = PHOTO_SETS[art];
+  const overlaySrc = clipSrc && clipSrc !== restClipSrc ? clipSrc : null;
+  const overlayIdentity = overlaySrc ? (clipKey ?? overlaySrc) : null;
+  const [loadedOverlay, setLoadedOverlay] = useState<string | null>(null);
+  useEffect(() => setLoadedOverlay(null), [overlayIdentity]);
+  const overlayReady = !!overlayIdentity && loadedOverlay === overlayIdentity;
+  const overlayVisible = overlayReady && !clipEnding;
   // Every photo sprite gets its own random phase (crossfade), sway timing, and limb-sway timing,
   // fixed once at mount, so a row of companions - or the two party members standing side by side
   // - never hold, turn, or breathe in lockstep. Without this every instance shares the same
@@ -755,19 +767,28 @@ export function Sprite({ art, color, size = 160, dimmed, flip, className = '', t
             aria-label={title}
           >
             <div className="photo-sprite-shadow" />
-            {clipSrc ? (
+            {restClipSrc ? (
               <img
-                key={clipKey ?? clipSrc}
-                src={clipSrc}
+                src={restClipSrc}
                 alt=""
-                className="photo-sprite-layer atk-clip-layer"
-                style={flip && clipPreMirrored ? { transform: 'scaleX(-1)' } : undefined}
+                className={`photo-sprite-layer resting-clip-layer ${overlayVisible ? 'covered' : ''}`}
+                style={flip && restClipPreMirrored ? { transform: 'scaleX(-1)' } : undefined}
               />
             ) : (
               <>
-                <div className="limb-band band-upper" style={{ ...limbVars, backgroundImage: `url(${photos[0]})` }} />
-                <div className="limb-band band-lower" style={{ ...limbVars, backgroundImage: `url(${photos[0]})` }} />
+                <div className={`limb-band band-upper ${overlayVisible ? 'covered' : ''}`} style={{ ...limbVars, backgroundImage: `url(${photos[0]})` }} />
+                <div className={`limb-band band-lower ${overlayVisible ? 'covered' : ''}`} style={{ ...limbVars, backgroundImage: `url(${photos[0]})` }} />
               </>
+            )}
+            {overlaySrc && (
+              <img
+                key={overlayIdentity ?? overlaySrc}
+                src={overlaySrc}
+                alt=""
+                className={`photo-sprite-layer atk-clip-layer ${overlayVisible ? 'ready' : ''}`}
+                style={flip && clipPreMirrored ? { transform: 'scaleX(-1)' } : undefined}
+                onLoad={() => setLoadedOverlay(overlayIdentity)}
+              />
             )}
           </div>
         ) : photos ? (
@@ -934,9 +955,10 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
   const [shownHit, setShownHit] = useState<Unit['lastHit'] | undefined>(undefined);
   useEffect(() => {
     if (!hit) { setShownHit(undefined); return; }
+    setShownHit(undefined);
     const t = setTimeout(() => setShownHit(hit), hitDelayMs ?? 0);
     return () => clearTimeout(t);
-  }, [hit?.seq]);
+  }, [hit?.seq, hitDelayMs]);
   // A real hit shakes the target; a dodge or a killing blow (already collapsing) does not.
   const flinch = !down && !!shownHit && shownHit.kind !== 'miss';
   const impact = shownHit && (shownHit.kind === 'damage' || shownHit.kind === 'crit') ? impactEffectFor(shownHit.effectAnim) : null;
@@ -954,15 +976,26 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
   // The clip only shows once the attacker has actually arrived (travelInMs in) and plays out for
   // its own duration from there, so the character reads as walking up in its resting pose, THEN
   // striking - not striking mid-stride. Same settle-back lifecycle as hitFlash above otherwise.
-  const [playingClip, setPlayingClip] = useState<{ src: string; seq: number; preMirrored?: boolean } | null>(null);
+  useEffect(() => {
+    [idleClip?.src, deathClip?.src, attackAnimClip?.src].filter((src): src is string => !!src).forEach((src) => {
+      const image = new Image();
+      image.src = src;
+      void image.decode?.().catch(() => undefined);
+    });
+  }, [idleClip?.src, deathClip?.src, attackAnimClip?.src]);
+  const [playingClip, setPlayingClip] = useState<{ src: string; seq: number; preMirrored?: boolean; ending?: boolean } | null>(null);
   useEffect(() => {
     if (!attackAnimClip || !timing) { setPlayingClip(null); return; }
     const seq = unit.lastAction?.seq ?? 0;
+    setPlayingClip(null);
     const showTimer = setTimeout(() => {
       setPlayingClip({ src: attackAnimClip.src, seq, preMirrored: attackAnimClip.preMirrored });
     }, timing.travelInMs);
+    const settleTimer = setTimeout(() => {
+      setPlayingClip((current) => current?.seq === seq ? { ...current, ending: true } : current);
+    }, timing.travelInMs + Math.max(0, attackAnimClip.ms - 90));
     const hideTimer = setTimeout(() => setPlayingClip(null), timing.travelInMs + attackAnimClip.ms);
-    return () => { clearTimeout(showTimer); clearTimeout(hideTimer); };
+    return () => { clearTimeout(showTimer); clearTimeout(settleTimer); clearTimeout(hideTimer); };
   }, [unit.lastAction?.seq]);
   // What the sprite actually shows right now, in priority order: a currently-playing attack
   // beats a death clip (once down) beats the looping idle, falling back to the old static-photo
@@ -970,7 +1003,7 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
   // themselves on every unrelated re-render) but distinct across cases, so switching between them
   // - or into a fresh attack - always mounts a clean new <img> instead of reusing a stale one.
   const shownClip = playingClip
-    ? { src: playingClip.src, preMirrored: playingClip.preMirrored, key: `atk-${playingClip.seq}` }
+    ? { src: playingClip.src, preMirrored: playingClip.preMirrored, key: `atk-${playingClip.seq}`, ending: playingClip.ending }
     : deathClip
     ? { src: deathClip.src, preMirrored: deathClip.preMirrored, key: 'death' }
     : idleClip
@@ -1012,6 +1045,9 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
             clipSrc={shownClip?.src}
             clipKey={shownClip?.key}
             clipPreMirrored={shownClip?.preMirrored}
+            restClipSrc={idleClip?.src}
+            restClipPreMirrored={idleClip?.preMirrored}
+            clipEnding={shownClip?.ending}
           />
           {impact === 'slash' && (
             <div className="impact-slash">
