@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useState, type CSSProperties, type ReactElement } from 'react';
 import type { AnimStyle, ArtId } from '../data/types';
 import type { Unit } from '../engine/combat';
+import { combatAnimationFor } from '../data/combatAnimations';
 
 // Illustrated vector art, drawn as inline SVG in a 120x160 box. Every figure is filled and
 // gradient-shaded (not just outlined) with a bold ink rim, textured fur/scale linework, and
@@ -643,6 +644,12 @@ interface SpriteProps {
    * that turns a fighter away from the fight; omit it to keep the old free-running showcase
    * cycle used by the bond-choice grid, where there's no "opponent" to face. */
   pose?: 'front' | 'toward';
+  /** A hand-animated clip URL to show instead of the static photo, for the moment an attack
+   * with a matching combat-animation entry is playing out. Undefined/null keeps the normal
+   * static-photo (or SVG figure) rendering. */
+  attackClip?: string | null;
+  /** Forces the browser to create a fresh image node when the same move is used twice. */
+  attackClipKey?: number;
 }
 
 // Many characters are now rendered from real photo references instead of the hand-drawn
@@ -691,7 +698,7 @@ const PHOTO_SETS: Partial<Record<ArtId, string[]>> = {
 };
 const PHOTO_CYCLE_STEP_SECONDS = 3;
 
-export function Sprite({ art, color, size = 160, dimmed, flip, className = '', title, onClick, delay = 0, pose }: SpriteProps) {
+export function Sprite({ art, color, size = 160, dimmed, flip, className = '', title, onClick, delay = 0, pose, attackClip, attackClipKey }: SpriteProps) {
   // Namespace this instance's gradient ids so two sprites on screen at once (e.g. the bond
   // grid's 11 companions) never resolve to each other's <radialGradient> definitions.
   const rawId = useId();
@@ -738,8 +745,14 @@ export function Sprite({ art, color, size = 160, dimmed, flip, className = '', t
             aria-label={title}
           >
             <div className="photo-sprite-shadow" />
-            <div className="limb-band band-upper" style={{ ...limbVars, backgroundImage: `url(${photos[0]})` }} />
-            <div className="limb-band band-lower" style={{ ...limbVars, backgroundImage: `url(${photos[0]})` }} />
+            {attackClip ? (
+              <img key={`${attackClip}-${attackClipKey ?? 0}`} src={attackClip} alt="" className="photo-sprite-layer atk-clip-layer" />
+            ) : (
+              <>
+                <div className="limb-band band-upper" style={{ ...limbVars, backgroundImage: `url(${photos[0]})` }} />
+                <div className="limb-band band-lower" style={{ ...limbVars, backgroundImage: `url(${photos[0]})` }} />
+              </>
+            )}
           </div>
         ) : photos ? (
           <div
@@ -836,6 +849,11 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
   // A real hit shakes the target; a dodge or a killing blow (already collapsing) does not.
   const flinch = !down && !!hit && hit.kind !== 'miss';
   const attackCls = attackClassFor(unit.lastAction?.anim, unit.side);
+  const clip = combatAnimationFor(unit.art, unit.lastAction ? {
+    id: unit.lastAction.skillId,
+    name: unit.lastAction.name,
+    anim: unit.lastAction.anim,
+  } : undefined);
   const impact = hit && (hit.kind === 'damage' || hit.kind === 'crit') ? impactEffectFor(hit.effectAnim) : null;
   // Two fighters should read as facing each other, not drift through a pose that turns one of
   // them away from the fight. Default to the resting 'front' pose; lean into the 'toward' (facing
@@ -848,10 +866,26 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
     const t = setTimeout(() => setHitFlash(false), 1000);
     return () => clearTimeout(t);
   }, [hit?.seq]);
+  // The clip plays out once for this action and then the sprite settles back to the normal
+  // static-photo presentation, same lifecycle as hitFlash above.
+  const [playingClip, setPlayingClip] = useState<{ src: string; seq: number } | null>(null);
+  useEffect(() => {
+    if (!clip) {
+      setPlayingClip(null);
+      return;
+    }
+    setPlayingClip({ src: clip.src, seq: unit.lastAction?.seq ?? 0 });
+    const t = setTimeout(() => setPlayingClip(null), clip.ms);
+    return () => clearTimeout(t);
+  }, [unit.lastAction?.seq]);
   const pose: 'front' | 'toward' = active || hitFlash ? 'toward' : 'front';
   return (
     <div className="sprite-wrap">
-      <div key={`act-${unit.lastAction?.seq ?? 0}`} className={`attack-anchor ${attackCls}`}>
+      <div
+        key={`act-${unit.lastAction?.seq ?? 0}`}
+        className={`attack-anchor ${attackCls}`}
+        style={clip ? { animationDuration: `${clip.ms}ms` } : undefined}
+      >
         <div key={`hit-${hit?.seq ?? 0}`} className={`hit-frame ${flinch ? 'flinch' : ''}`}>
           <Sprite
             art={unit.art}
@@ -863,6 +897,8 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
             onClick={targetable && !down ? onClick : undefined}
             delay={delay}
             pose={pose}
+            attackClip={playingClip?.src}
+            attackClipKey={playingClip?.seq}
           />
           {impact === 'slash' && (
             <div className="impact-slash">

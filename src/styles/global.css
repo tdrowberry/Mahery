@@ -219,6 +219,9 @@ select {
 }
 .photo-sprite-layer.drift-a { --drift: 14px; }
 .photo-sprite-layer.drift-b { --drift: -14px; }
+/* A hand-animated attack clip standing in for the static photo - always fully shown, no
+   cycle/drift, since the clip itself is already doing the motion. */
+.photo-sprite-layer.atk-clip-layer { opacity: 1; }
 .photo-sprite-layer.cycle-3 { animation: photo-cycle-3 10s ease-in-out infinite; }
 .photo-sprite-layer.cycle-2 { animation: photo-cycle-2 7s ease-in-out infinite; }
 @keyframes photo-cycle-3 {
