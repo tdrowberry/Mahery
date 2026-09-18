@@ -2,10 +2,11 @@ import { useGame, type Screen } from '../state/gameStore';
 import { useUiStore } from '../state/uiStore';
 import { useAudioSettings } from '../state/audioStore';
 
-/** Screens that render their own MenuStrip (see MenuStrip.tsx) already have a Settings button
- * in it - the floating gear here only needs to cover everywhere else (title, story, bond,
- * battle, results, ending), so Settings is always one click away no matter what's on screen. */
-const HAS_MENU_STRIP: Screen[] = ['hub', 'inventory', 'shop', 'skills'];
+/** Screens that already have their own Settings button - MenuStrip's (see MenuStrip.tsx) for
+ * hub/inventory/shop/skills, and BattleScreen's own copy (next to its home/exit button) for
+ * battle. The floating gear here only needs to cover everywhere else (title, story, bond,
+ * results, ending), so Settings is always one click away no matter what's on screen. */
+const HAS_MENU_STRIP: Screen[] = ['hub', 'inventory', 'shop', 'skills', 'battle'];
 
 /** Gear icon rendered once at the app root (App.tsx). The overlay it opens is shared with the
  * MenuStrip's own Settings button (see uiStore) - one settingsOpen flag, two possible triggers,

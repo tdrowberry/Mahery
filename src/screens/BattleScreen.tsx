@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { resolveEncounter, useGame } from '../state/gameStore';
+import { useUiStore } from '../state/uiStore';
 import { CHAPTER_BACKGROUNDS } from '../data/backgrounds';
 import type { ActiveSkill, Stance, StatusId } from '../data/types';
 import {
@@ -84,8 +85,10 @@ export function BattleScreen() {
   const retryBattle = useGame((s) => s.retryBattle);
   const leaveBattle = useGame((s) => s.leaveBattle);
   const finishBattle = useGame((s) => s.finishBattle);
+  const openSettings = useUiStore((s) => s.openSettings);
   const [armed, setArmed] = useState<ActiveSkill | null>(null);
   const [showLog, setShowLog] = useState(false);
+  const [confirmingExit, setConfirmingExit] = useState(false);
   // Each party/enemy slot registers its own DOM node here so an attacking unit's sprite can
   // measure the real on-screen distance to its target and travel there, rather than lunging a
   // fixed amount in place. Slots are stable for the whole battle (nothing re-mounts them turn
@@ -286,7 +289,7 @@ export function BattleScreen() {
         )}
       </div>
 
-      {/* bottom controls: teammate + stance, wait button, action bar for whoever you're directing */}
+      {/* bottom controls: teammate + stance, home/exit + settings + log, action bar + skip turn */}
       <div className="controls">
         <div className="steel ctl-left">
           <button className="team-btn" disabled={!!selectProblem} onClick={() => select(other.id === 'mahery' ? 'mahery' : 'companion')} title={selectProblem ?? `Direct ${other.name} instead`} data-testid="select-other-btn">
@@ -310,18 +313,38 @@ export function BattleScreen() {
           </div>
         </div>
         <div className="steel ctl-center">
-          <button className={`round-btn ${playerTurn ? 'on' : ''}`} disabled={!playerTurn} onClick={battleWait} title="Wait: end this turn without acting" data-testid="wait-btn">
-            <span>◔</span>
+          <button className="round-btn" onClick={() => setConfirmingExit(true)} title="Exit fight and return to camp" data-testid="home-exit-btn">
+            <img className="round-btn-img" src="/art/branding/logo-alt.jpg" alt="" />
           </button>
-          <button className="mini-btn" onClick={() => setShowLog((v) => !v)} title="Combat log">{showLog ? '▾' : '▸'}</button>
-          <button className="mini-btn danger" onClick={leaveBattle} title="Retreat to camp">✕</button>
+          <div className="ctl-center-row">
+            <button className="mini-btn" onClick={openSettings} title="Settings" data-testid="battle-settings-btn">⚙</button>
+            <button className="mini-btn" onClick={() => setShowLog((v) => !v)} title="Combat log">{showLog ? '▾' : '▸'}</button>
+          </div>
         </div>
         <div className="steel ctl-right">
           <div className="ctl-actor">{directed.name} {playerTurn ? 'acts' : <span className="muted">waiting...</span>}</div>
-          <ActionBar battle={battle} skills={directed.skills} armedSkillId={armed?.id ?? null} disabled={!playerTurn} onPick={pick} />
+          <div className="ctl-acts-row">
+            <ActionBar battle={battle} skills={directed.skills} armedSkillId={armed?.id ?? null} disabled={!playerTurn} onPick={pick} />
+            <button className="btn btn-sm skip-turn-btn" disabled={!playerTurn} onClick={battleWait} title="Skip your turn without acting" data-testid="skip-turn-btn">
+              Skip Turn
+            </button>
+          </div>
           <div className="error" data-testid="battle-error">{battle.lastError ?? ''}</div>
         </div>
       </div>
+
+      {confirmingExit && (
+        <div className="overlay" onClick={() => setConfirmingExit(false)}>
+          <div className="box" onClick={(e) => e.stopPropagation()}>
+            <h2>Exit Fight?</h2>
+            <div className="muted small" style={{ marginBottom: 14 }}>Leave this fight and return to camp?</div>
+            <div className="row" style={{ justifyContent: 'center' }}>
+              <button className="btn btn-primary" onClick={leaveBattle} data-testid="confirm-exit-btn">Yes</button>
+              <button className="btn btn-sm" onClick={() => setConfirmingExit(false)}>No</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showLog && (
         <div className="steel log-panel">
