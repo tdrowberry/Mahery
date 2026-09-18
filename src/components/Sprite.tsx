@@ -733,7 +733,10 @@ export function Sprite({ art, color, size = 160, dimmed, flip, className = '', t
   const [loadedOverlay, setLoadedOverlay] = useState<string | null>(null);
   useEffect(() => setLoadedOverlay(null), [overlayIdentity]);
   const overlayReady = !!overlayIdentity && loadedOverlay === overlayIdentity;
-  const overlayVisible = overlayReady && !clipEnding;
+  // These are transparent full-body images, so the resting and action figures must never be
+  // visible together: their differently posed arms/legs read as extra limbs. The handoff is
+  // atomic once the overlay is decoded; smoothing happens on the active layer's motion instead.
+  const overlayVisible = overlayReady;
   // Every photo sprite gets its own random phase (crossfade), sway timing, and limb-sway timing,
   // fixed once at mount, so a row of companions - or the two party members standing side by side
   // - never hold, turn, or breathe in lockstep. Without this every instance shares the same
@@ -785,7 +788,7 @@ export function Sprite({ art, color, size = 160, dimmed, flip, className = '', t
                 key={overlayIdentity ?? overlaySrc}
                 src={overlaySrc}
                 alt=""
-                className={`photo-sprite-layer atk-clip-layer ${overlayVisible ? 'ready' : ''}`}
+                className={`photo-sprite-layer atk-clip-layer ${overlayVisible ? 'ready' : ''} ${clipEnding ? 'finishing' : ''}`}
                 style={flip && clipPreMirrored ? { transform: 'scaleX(-1)' } : undefined}
                 onLoad={() => setLoadedOverlay(overlayIdentity)}
               />
@@ -1031,7 +1034,7 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
         className={`attack-anchor ${attackCls}`}
         style={anchorStyle}
       >
-        <div key={`hit-${shownHit?.seq ?? 0}`} className={`hit-frame ${flinch ? 'flinch' : ''}`}>
+        <div className={`hit-frame ${flinch ? 'flinch' : ''}`}>
           <Sprite
             art={unit.art}
             color={unit.color}

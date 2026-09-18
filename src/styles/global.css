@@ -222,12 +222,17 @@ select {
 }
 .photo-sprite-layer.drift-a { --drift: 14px; }
 .photo-sprite-layer.drift-b { --drift: -14px; }
-/* Keep the decoded resting frame below one-shot clips and crossfade only after the overlay has
-   loaded. This removes the blank frame that used to appear when an attack/death image mounted. */
-.photo-sprite-layer.resting-clip-layer { opacity: 1; transition: opacity 90ms ease-out; }
+/* Keep a decoded resting frame ready below one-shot clips, but never show two transparent
+   full-body layers together (that produces ghost/extra limbs wherever the poses differ).
+   The loaded action layer replaces it atomically, then settles with transform-only easing. */
+.photo-sprite-layer.resting-clip-layer { opacity: 1; }
 .photo-sprite-layer.resting-clip-layer.covered { opacity: 0; }
-.photo-sprite-layer.atk-clip-layer { opacity: 0; transition: opacity 90ms ease-out; }
-.photo-sprite-layer.atk-clip-layer.ready { opacity: 1; }
+.photo-sprite-layer.atk-clip-layer {
+  opacity: 0; translate: 0 1px; scale: 0.995;
+  transition: translate 90ms ease-out, scale 90ms ease-out;
+}
+.photo-sprite-layer.atk-clip-layer.ready { opacity: 1; translate: 0 0; scale: 1; }
+.photo-sprite-layer.atk-clip-layer.finishing { translate: 0 1px; scale: 0.995; }
 .photo-sprite-layer.cycle-3 { animation: photo-cycle-3 27s ease-in-out infinite; }
 .photo-sprite-layer.cycle-2 { animation: photo-cycle-2 19s ease-in-out infinite; }
 @keyframes photo-cycle-3 {
@@ -267,7 +272,6 @@ select {
   position: absolute; inset: 0; background-repeat: no-repeat; background-position: bottom center; background-size: contain;
   animation-duration: var(--limb-dur, 3.6s); animation-delay: var(--limb-delay, 0s);
   animation-timing-function: ease-in-out; animation-iteration-count: infinite;
-  transition: opacity 90ms ease-out;
 }
 .limb-band.covered { opacity: 0; }
 .limb-band.band-upper { clip-path: inset(0 0 46% 0); transform-origin: 50% 54%; animation-name: limb-sway-upper; }
