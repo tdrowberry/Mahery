@@ -295,19 +295,26 @@ select {
 
 /* ---------- attack animations ---------- */
 /* Player units sit on the left and face right; enemy units sit on the right, flipped to face
-   left. Every directional attack lunges toward the opponent's side: -r for the player's side,
-   -l for the enemy's. .attack-anchor wraps the sprite so its own idle bob (a separate
-   `translate` property on .sprite) never fights this wrapper's `transform` animation. */
+   left. Every directional attack now travels the real distance to its actual target and back -
+   BattleScreen measures the on-screen gap between the attacker's and target's slots and sets
+   --travel-x (a positive px magnitude) on .attack-anchor; -r keyframes use it as-is, -l negates
+   it, so the same measured distance drives both directions. The px fallback in each var() is the
+   old fixed short-lunge distance, kept so anything without a measurable target (or the rare unit
+   with no slot ref yet) still animates sensibly in place instead of not moving at all. Only the
+   horizontal reach scales with distance; the rotation/scale/vertical "flavor" per style is
+   unchanged - the character should look the same mid-swing whether the target is near or far,
+   just travel further to reach it. .attack-anchor wraps the sprite so its own idle bob (a
+   separate `translate` property on .sprite) never fights this wrapper's `transform` animation. */
 @keyframes atk-strike-r {
   0%   { transform: translate(0,0) rotate(0deg); }
-  35%  { transform: translate(20px,-2px) rotate(-4deg); }
-  55%  { transform: translate(24px,0) rotate(2deg); }
+  35%  { transform: translate(calc(var(--travel-x, 24px) * 0.833),-2px) rotate(-4deg); }
+  55%  { transform: translate(var(--travel-x, 24px),0) rotate(2deg); }
   100% { transform: translate(0,0) rotate(0deg); }
 }
 @keyframes atk-strike-l {
   0%   { transform: translate(0,0) rotate(0deg); }
-  35%  { transform: translate(-20px,-2px) rotate(4deg); }
-  55%  { transform: translate(-24px,0) rotate(-2deg); }
+  35%  { transform: translate(calc(var(--travel-x, 24px) * -0.833),-2px) rotate(4deg); }
+  55%  { transform: translate(calc(var(--travel-x, 24px) * -1),0) rotate(-2deg); }
   100% { transform: translate(0,0) rotate(0deg); }
 }
 .attack-anchor.atk-strike-r { animation: atk-strike-r 0.45s ease-out; }
@@ -316,16 +323,16 @@ select {
 /* charge: rears up, leaps in low with the head down, lands on the hit - the moose's antlers. */
 @keyframes atk-charge-r {
   0%   { transform: translate(0,0) rotate(0deg) scale(1); }
-  22%  { transform: translate(8px,-26px) rotate(-12deg) scale(1.04); }
-  48%  { transform: translate(58px,-8px) rotate(16deg) scale(1.1); }
-  64%  { transform: translate(54px,4px) rotate(10deg) scale(1.05); }
+  22%  { transform: translate(calc(var(--travel-x, 58px) * 0.138),-26px) rotate(-12deg) scale(1.04); }
+  48%  { transform: translate(var(--travel-x, 58px),-8px) rotate(16deg) scale(1.1); }
+  64%  { transform: translate(calc(var(--travel-x, 58px) * 0.931),4px) rotate(10deg) scale(1.05); }
   100% { transform: translate(0,0) rotate(0deg) scale(1); }
 }
 @keyframes atk-charge-l {
   0%   { transform: translate(0,0) rotate(0deg) scale(1); }
-  22%  { transform: translate(-8px,-26px) rotate(12deg) scale(1.04); }
-  48%  { transform: translate(-58px,-8px) rotate(-16deg) scale(1.1); }
-  64%  { transform: translate(-54px,4px) rotate(-10deg) scale(1.05); }
+  22%  { transform: translate(calc(var(--travel-x, 58px) * -0.138),-26px) rotate(12deg) scale(1.04); }
+  48%  { transform: translate(calc(var(--travel-x, 58px) * -1),-8px) rotate(-16deg) scale(1.1); }
+  64%  { transform: translate(calc(var(--travel-x, 58px) * -0.931),4px) rotate(-10deg) scale(1.05); }
   100% { transform: translate(0,0) rotate(0deg) scale(1); }
 }
 .attack-anchor.atk-charge-r { animation: atk-charge-r 0.65s cubic-bezier(.3,.1,.3,1); }
@@ -333,14 +340,14 @@ select {
 
 @keyframes atk-venom-r {
   0%   { transform: translate(0,0); filter: none; }
-  40%  { transform: translate(16px,0); filter: drop-shadow(0 0 7px #9ad14a); }
-  60%  { transform: translate(19px,0); filter: drop-shadow(0 0 11px #9ad14a); }
+  40%  { transform: translate(calc(var(--travel-x, 19px) * 0.842),0); filter: drop-shadow(0 0 7px #9ad14a); }
+  60%  { transform: translate(var(--travel-x, 19px),0); filter: drop-shadow(0 0 11px #9ad14a); }
   100% { transform: translate(0,0); filter: none; }
 }
 @keyframes atk-venom-l {
   0%   { transform: translate(0,0); filter: none; }
-  40%  { transform: translate(-16px,0); filter: drop-shadow(0 0 7px #9ad14a); }
-  60%  { transform: translate(-19px,0); filter: drop-shadow(0 0 11px #9ad14a); }
+  40%  { transform: translate(calc(var(--travel-x, 19px) * -0.842),0); filter: drop-shadow(0 0 7px #9ad14a); }
+  60%  { transform: translate(calc(var(--travel-x, 19px) * -1),0); filter: drop-shadow(0 0 11px #9ad14a); }
   100% { transform: translate(0,0); filter: none; }
 }
 .attack-anchor.atk-venom-r { animation: atk-venom-r 0.5s ease-out; }
@@ -374,14 +381,14 @@ select {
 
 @keyframes atk-dive-strike-r {
   0%   { transform: translate(0,-24px) scale(0.9); }
-  50%  { transform: translate(30px,-30px) scale(0.95); }
-  78%  { transform: translate(46px,2px) scale(1.1); }
+  50%  { transform: translate(calc(var(--travel-x, 46px) * 0.652),-30px) scale(0.95); }
+  78%  { transform: translate(var(--travel-x, 46px),2px) scale(1.1); }
   100% { transform: translate(0,0) scale(1); }
 }
 @keyframes atk-dive-strike-l {
   0%   { transform: translate(0,-24px) scale(0.9); }
-  50%  { transform: translate(-30px,-30px) scale(0.95); }
-  78%  { transform: translate(-46px,2px) scale(1.1); }
+  50%  { transform: translate(calc(var(--travel-x, 46px) * -0.652),-30px) scale(0.95); }
+  78%  { transform: translate(calc(var(--travel-x, 46px) * -1),2px) scale(1.1); }
   100% { transform: translate(0,0) scale(1); }
 }
 .attack-anchor.atk-dive-strike-r { animation: atk-dive-strike-r 0.55s ease-in; }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { resolveEncounter, useGame } from '../state/gameStore';
 import { CHAPTER_BACKGROUNDS } from '../data/backgrounds';
 import type { ActiveSkill, Stance, StatusId } from '../data/types';
@@ -56,6 +56,12 @@ export function BattleScreen() {
   const finishBattle = useGame((s) => s.finishBattle);
   const [armed, setArmed] = useState<ActiveSkill | null>(null);
   const [showLog, setShowLog] = useState(false);
+  // Each party/enemy slot registers its own DOM node here so an attacking unit's sprite can
+  // measure the real on-screen distance to its target and travel there, rather than lunging a
+  // fixed amount in place. Slots are stable for the whole battle (nothing re-mounts them turn
+  // to turn), so reading a rect from a previous commit here is always still valid.
+  const slotRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const setSlotRef = (id: string) => (el: HTMLDivElement | null) => { slotRefs.current[id] = el; };
 
   // Enemy and auto-ally turns play out one beat at a time so the fight is readable.
   useEffect(() => {
@@ -100,6 +106,22 @@ export function BattleScreen() {
     battleSelect(unitId);
   };
 
+  // How far (in px) this unit's own last action should travel toward its target before playing
+  // the attack and coming back - undefined for moves with no target (self-buffs, aoe) or before
+  // both slots have measurable positions.
+  const travelXFor = (unit: Unit): number | undefined => {
+    const targetId = unit.lastAction?.targetId;
+    if (!targetId) return undefined;
+    const from = slotRefs.current[unit.id];
+    const to = slotRefs.current[targetId];
+    if (!from || !to) return undefined;
+    const a = from.getBoundingClientRect();
+    const b = to.getBoundingClientRect();
+    const dx = (b.left + b.width / 2) - (a.left + a.width / 2);
+    const STOP_SHORT_PX = 90; // leave a gap so attacker and target don't fully overlap at full reach
+    return Math.max(0, Math.abs(dx) - STOP_SHORT_PX);
+  };
+
   return (
     <div className="game arena">
       {/* top HUD: party left, enemies right, round in the middle */}
@@ -129,16 +151,16 @@ export function BattleScreen() {
         {battle.banner && <div className="banner" data-testid="banner">{battle.banner}</div>}
         {armed && !battle.banner && <div className="banner hint-banner">Choose a target for {armed.name}.</div>}
         <div className="field-party">
-          <div className={`party-slot ${battle.activeId === 'mahery' ? 'directing' : ''}`} onClick={() => select('mahery')} data-testid="select-mahery">
-            <UnitSprite unit={battle.units.mahery} size={battle.activeId === 'mahery' ? 175 : 145} active={battle.currentActor === 'mahery'} label={null} />
+          <div ref={setSlotRef('mahery')} className={`party-slot ${battle.activeId === 'mahery' ? 'directing' : ''}`} onClick={() => select('mahery')} data-testid="select-mahery">
+            <UnitSprite unit={battle.units.mahery} size={battle.activeId === 'mahery' ? 175 : 145} active={battle.currentActor === 'mahery'} label={null} travelX={travelXFor(battle.units.mahery)} />
           </div>
-          <div className={`party-slot ${battle.activeId === 'companion' ? 'directing' : ''}`} onClick={() => select('companion')} data-testid="select-companion">
-            <UnitSprite unit={battle.units.companion} size={battle.activeId === 'companion' ? 175 : 145} active={battle.currentActor === 'companion'} label={null} delay={0.5} />
+          <div ref={setSlotRef('companion')} className={`party-slot ${battle.activeId === 'companion' ? 'directing' : ''}`} onClick={() => select('companion')} data-testid="select-companion">
+            <UnitSprite unit={battle.units.companion} size={battle.activeId === 'companion' ? 175 : 145} active={battle.currentActor === 'companion'} label={null} delay={0.5} travelX={travelXFor(battle.units.companion)} />
           </div>
         </div>
         <div className="field-enemies">
           {enemies.map((e, i) => (
-            <div key={e.id} className="enemy-slot" data-testid={`enemy-${e.id}`}>
+            <div key={e.id} ref={setSlotRef(e.id)} className="enemy-slot" data-testid={`enemy-${e.id}`}>
               <UnitSprite
                 unit={e}
                 size={enemies.length > 1 ? 150 : 180}
@@ -147,6 +169,7 @@ export function BattleScreen() {
                 onClick={() => clickEnemy(e.id)}
                 label={armed && playerTurn && e.health > 0 ? e.name : null}
                 delay={0.4 * (i + 1)}
+                travelX={travelXFor(e)}
               />
             </div>
           ))}

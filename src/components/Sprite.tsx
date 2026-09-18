@@ -834,10 +834,21 @@ interface UnitSpriteProps {
   /** null hides the label entirely */
   label?: string | null;
   delay?: number;
+  /** Real on-screen px distance from this unit's slot to its lastAction target's slot, measured
+   * by BattleScreen. Undefined for untargeted moves (self/ally-cast, aoe) or before both slots
+   * are measurable - the attack CSS falls back to its old small in-place lunge in that case. */
+  travelX?: number;
 }
 
+/** How long the attacker holds its "windup/impact" flavor before the travel-distance-scaled
+ * return trip, for anim styles that don't have a hand-animated clip driving the timing instead. */
+const BASE_ANIM_MS: Partial<Record<AnimStyle, number>> = { strike: 450, charge: 650, venom: 500, diveStrike: 550 };
+/** Extra animation time per px of real travel, so a cross-field dash doesn't play at the same
+ * speed as the old few-tens-of-px lunge - just proportionally longer, not a blur. */
+const TRAVEL_MS_PER_PX = 0.45;
+
 /** A combat unit's figure with floating damage numbers and a name label. */
-export function UnitSprite({ unit, size = 170, active, targetable, onClick, label, delay }: UnitSpriteProps) {
+export function UnitSprite({ unit, size = 170, active, targetable, onClick, label, delay, travelX }: UnitSpriteProps) {
   const down = unit.health <= 0;
   const airborne = !down && unit.statuses.some((st) => st.id === 'airborne');
   const charging = !down && unit.statuses.some((st) => st.id === 'charging');
@@ -879,12 +890,18 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
     return () => clearTimeout(t);
   }, [unit.lastAction?.seq]);
   const pose: 'front' | 'toward' = active || hitFlash ? 'toward' : 'front';
+  const travelMs = travelX ? Math.round(travelX * TRAVEL_MS_PER_PX) : 0;
+  const baseMs = clip?.ms ?? (unit.lastAction?.anim && BASE_ANIM_MS[unit.lastAction.anim]);
+  const anchorStyle = (baseMs != null || travelX != null) ? {
+    ...(baseMs != null ? { animationDuration: `${baseMs + travelMs}ms` } : {}),
+    ...(travelX != null ? { '--travel-x': `${travelX}px` } : {}),
+  } as CSSProperties : undefined;
   return (
     <div className="sprite-wrap">
       <div
         key={`act-${unit.lastAction?.seq ?? 0}`}
         className={`attack-anchor ${attackCls}`}
-        style={clip ? { animationDuration: `${clip.ms}ms` } : undefined}
+        style={anchorStyle}
       >
         <div key={`hit-${hit?.seq ?? 0}`} className={`hit-frame ${flinch ? 'flinch' : ''}`}>
           <Sprite

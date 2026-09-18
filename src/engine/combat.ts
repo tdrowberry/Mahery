@@ -65,6 +65,10 @@ export interface UnitLastAction {
   /** The concrete move lets the renderer choose bite vs claw vs sweep artwork. */
   skillId?: string;
   name?: string;
+  /** Who this hit was aimed at - lets the renderer travel the attacker's sprite to the actual
+   * target's position instead of just lunging in place. Absent for self/ally/aoe moves, which
+   * don't cross the field. */
+  targetId?: UnitId;
 }
 
 export interface Unit {
@@ -682,7 +686,7 @@ function useSkill(s: BattleState, casterId: UnitId, skill: ActiveSkill, targetId
   if (skill.cooldown > 0) caster.cooldowns[skill.id] = skill.cooldown + 1;
   caster.usedOnce[skill.id] = true;
   s.seq += 1;
-  caster.lastAction = { seq: s.seq, anim: skill.anim, skillId: skill.id, name: skill.name };
+  caster.lastAction = { seq: s.seq, anim: skill.anim, skillId: skill.id, name: skill.name, targetId };
   const target = s.units[targetId];
   const onSomeone = skill.target === 'enemy' || skill.target === 'ally';
   pushLog(s, 'info', `${caster.name} uses ${skill.name}${onSomeone ? ` on ${target.name}` : ''}.`);
@@ -765,7 +769,7 @@ function resolveOnePendingStrike(s: BattleState, id: PartyId) {
   const targetId = isAlive(s.units[p.targetId]) ? p.targetId : aliveEnemies(s)[0]?.id;
   if (!targetId) return;
   s.seq += 1;
-  u.lastAction = { seq: s.seq, anim: 'diveStrike', name: p.name };
+  u.lastAction = { seq: s.seq, anim: 'diveStrike', name: p.name, targetId };
   pushLog(s, 'info', `${u.name} comes down on ${s.units[targetId].name}: ${p.name}!`);
   dealDamage(s, id, targetId, scaledValue(effectiveAttributes(u), 'strength', p.multiplier), { canMiss: false, ignoreGuardPct: p.ignoreGuardPct });
 }
@@ -783,7 +787,7 @@ function resolveOneChargedAttack(s: BattleState, casterId: UnitId) {
   const damageTaken = c.healthAtChargeStart - caster.health;
   const broken = damageTaken >= c.breakThresholdPct * caster.maxHealth;
   s.seq += 1;
-  caster.lastAction = { seq: s.seq, anim: 'diveStrike', name: c.name };
+  caster.lastAction = { seq: s.seq, anim: 'diveStrike', name: c.name, targetId };
   const attrs = effectiveAttributes(caster);
   if (broken) {
     pushLog(s, 'info', `${caster.name} was staggered mid-charge - ${c.name} lands weakly.`);
