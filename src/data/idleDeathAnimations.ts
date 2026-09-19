@@ -12,10 +12,11 @@ export interface IdleDeathClip {
   preMirrored?: boolean;
 }
 
-// The V2 strips expand the six key poses into 20 rendered frames while preserving each
-// state's original total duration. Idle remains a 1.02-second loop; death remains a
-// 1.57-second one-shot with a long hold on the final grounded pose.
-const IDLE_MS = 170 * 6;
+// The V2 strips expand the six key poses into 20 rendered frames. Death keeps its original
+// 1.57-second one-shot with a long hold on the final grounded pose. Idle was exported as a
+// 1.02-second loop but plays at 45% speed: reference-art/animation-library/retime-idle-clips.mjs
+// rewrites the shipped files to 2267ms, so keep this in sync with that script's default.
+const IDLE_MS = 2267;
 const DEATH_MS = 140 + 120 + 130 + 150 + 180 + 850;
 
 const clip = (name: string, state: 'idle' | 'death', preMirrored?: boolean): IdleDeathClip => ({

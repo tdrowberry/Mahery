@@ -901,6 +901,9 @@ const MIN_TRAVEL_MS = 320;
 /** How far into the hold (0..1) the attack actually lands, for timing the target's hit reaction
  * to when the attacker is genuinely standing at the target rather than still mid-swing. */
 const IMPACT_FRACTION_OF_HOLD = 0.45;
+/** How long a presented hit's reaction (slash marks, number, flinch) stays up before it's cleared
+ * - just past the floating number's 1.2s rise, so nothing is cut off. */
+const HIT_REACTION_MS = 1300;
 
 /** The attacking unit's own timing: how long the hop there takes, how long it then holds at the
  * target playing the attack, and the combined total (the hop back mirrors the hop there). Shared
@@ -955,16 +958,33 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
   // when the attacker's sprite actually arrives. shownHit holds off on presenting the flinch,
   // impact flash, and floating number until hitDelayMs has passed, so a target visibly reacts in
   // step with the attack landing instead of flinching before the attacker has even set off.
-  const [shownHit, setShownHit] = useState<Unit['lastHit'] | undefined>(undefined);
+  const [shown, setShown] = useState<{ hit: NonNullable<Unit['lastHit']>; actionSeq: number } | undefined>(undefined);
+  const actionSeq = unit.lastAction?.seq ?? 0;
+  // A presented hit is an event, not a state: the number lives out its own rise and is then
+  // cleared (HIT_REACTION_MS), and the slash marks / flinch are additionally tied to the action
+  // this unit was on when the hit landed (see reactionHit below).
+  // Keyed on the hit alone, on purpose: hitDelayMs is recomputed for every unit whenever ANY
+  // unit acts (it falls back to 0 once nothing is attacking this one), so depending on it would
+  // re-present this unit's old hit on the attacker and on bystanders at the start of every later
+  // action, instead of only on whoever is being hit.
   useEffect(() => {
-    if (!hit) { setShownHit(undefined); return; }
-    setShownHit(undefined);
-    const t = setTimeout(() => setShownHit(hit), hitDelayMs ?? 0);
-    return () => clearTimeout(t);
-  }, [hit?.seq, hitDelayMs]);
+    if (!hit) { setShown(undefined); return; }
+    setShown(undefined);
+    const delay = hitDelayMs ?? 0;
+    const show = setTimeout(() => setShown({ hit, actionSeq }), delay);
+    const expire = setTimeout(() => setShown(undefined), delay + HIT_REACTION_MS);
+    return () => { clearTimeout(show); clearTimeout(expire); };
+  }, [hit?.seq]);
+  const shownHit = shown?.hit;
+  // The attack-anchor below is keyed on this unit's own lastAction, so it remounts the moment the
+  // unit starts ACTING - and anything still mounted inside it would replay from the top, flashing
+  // the old slash marks and flinch on the attacker. No amount of timing avoids that (the gap
+  // between being hit and acting again varies), so the reaction is dropped in the same render the
+  // unit's own action changes, while the floating number (outside the anchor) plays out.
+  const reactionHit = shown && shown.actionSeq === actionSeq ? shown.hit : undefined;
   // A real hit shakes the target; a dodge or a killing blow (already collapsing) does not.
-  const flinch = !down && !!shownHit && shownHit.kind !== 'miss';
-  const impact = shownHit && (shownHit.kind === 'damage' || shownHit.kind === 'crit') ? impactEffectFor(shownHit.effectAnim) : null;
+  const flinch = !down && !!reactionHit && reactionHit.kind !== 'miss';
+  const impact = reactionHit && (reactionHit.kind === 'damage' || reactionHit.kind === 'crit') ? impactEffectFor(reactionHit.effectAnim) : null;
   // Two fighters should read as facing each other, not drift through a pose that turns one of
   // them away from the fight. Default to the resting 'front' pose; lean into the 'toward' (facing
   // the opponent) pose only while it's this unit's turn, or briefly after it lands/takes a hit -
