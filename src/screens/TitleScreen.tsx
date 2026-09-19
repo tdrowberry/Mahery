@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useGame } from '../state/gameStore';
+import { useUiStore } from '../state/uiStore';
 import { listSlots, type SlotNumber } from '../state/saveFormat';
 import { getAnimal } from '../data/animals';
+import { AI_BLURB } from '../data/terms';
 import { Sprite } from '../components/Sprite';
 
 const LOGO_SRC = '/art/branding/logo-main.jpg';
@@ -10,6 +12,7 @@ export function TitleScreen() {
   const newGame = useGame((s) => s.newGame);
   const continueGame = useGame((s) => s.continueGame);
   const deleteSave = useGame((s) => s.deleteSave);
+  const openTerms = useUiStore((s) => s.openTerms);
   const [confirmDelete, setConfirmDelete] = useState<SlotNumber | null>(null);
   const [tick, setTick] = useState(0);
   const slots = listSlots();
@@ -57,6 +60,11 @@ export function TitleScreen() {
         })}
       </div>
       <div className="muted small">The full road: six chapters, eleven bonds, one choice at the end.</div>
+      <div className="title-footer">
+        <span>{AI_BLURB}</span>
+        <span aria-hidden="true">·</span>
+        <button className="link-btn" onClick={openTerms} data-testid="title-terms-link">Terms &amp; Conditions</button>
+      </div>
     </div>
   );
 }

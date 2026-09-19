@@ -1,6 +1,7 @@
 import { useGame, type Screen } from '../state/gameStore';
 import { useUiStore } from '../state/uiStore';
 import { useAudioSettings } from '../state/audioStore';
+import { AI_BLURB } from '../data/terms';
 
 /** Screens that already have their own Settings button - MenuStrip's (see MenuStrip.tsx) for
  * hub/inventory/shop/skills, and BattleScreen's own copy (next to its home/exit button) for
@@ -16,6 +17,7 @@ export function SettingsPanel() {
   const open = useUiStore((s) => s.settingsOpen);
   const openSettings = useUiStore((s) => s.openSettings);
   const closeSettings = useUiStore((s) => s.closeSettings);
+  const openTerms = useUiStore((s) => s.openTerms);
   const volume = useAudioSettings((s) => s.volume);
   const muted = useAudioSettings((s) => s.muted);
   const setVolume = useAudioSettings((s) => s.setVolume);
@@ -68,6 +70,12 @@ export function SettingsPanel() {
               <button className="btn btn-sm" disabled title="Coming once Mahery is on the Play Store">
                 Sign in with Google Play (coming soon)
               </button>
+            </div>
+
+            <div className="settings-section">
+              <div className="settings-row"><span>About</span></div>
+              <div className="muted small" style={{ marginBottom: 8 }}>{AI_BLURB}.</div>
+              <button className="btn btn-sm" onClick={openTerms} data-testid="settings-terms-btn">Terms &amp; Conditions</button>
             </div>
 
             <button className="btn btn-primary" style={{ marginTop: 4, width: '100%' }} onClick={closeSettings}>

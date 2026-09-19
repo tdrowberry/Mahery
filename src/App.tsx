@@ -1,7 +1,10 @@
 import { useGame } from './state/gameStore';
+import { useTerms } from './state/termsStore';
 import { Embers } from './components/Embers';
 import { MusicPlayer } from './components/MusicPlayer';
 import { SettingsPanel } from './components/SettingsPanel';
+import { TermsViewer } from './components/TermsViewer';
+import { TermsScreen } from './screens/TermsScreen';
 import { TitleScreen } from './screens/TitleScreen';
 import { StoryScreen } from './screens/StoryScreen';
 import { BondScreen } from './screens/BondScreen';
@@ -30,12 +33,23 @@ function CurrentScreen() {
 }
 
 export default function App() {
+  const termsAccepted = useTerms((s) => s.accepted);
+  // Nothing but the acceptance screen mounts until the terms are accepted - not even the music.
+  if (!termsAccepted) {
+    return (
+      <>
+        <Embers />
+        <TermsScreen />
+      </>
+    );
+  }
   return (
     <>
       <Embers />
       <CurrentScreen />
       <MusicPlayer />
       <SettingsPanel />
+      <TermsViewer />
     </>
   );
 }
