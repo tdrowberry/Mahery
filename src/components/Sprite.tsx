@@ -3,6 +3,8 @@ import type { AnimStyle, ArtId } from '../data/types';
 import type { Unit } from '../engine/combat';
 import { combatAnimationFor } from '../data/combatAnimations';
 import { idleClipFor, deathClipFor } from '../data/idleDeathAnimations';
+import { useIdlePhase } from './idlePhase';
+import { usePresentedHealth } from './usePresentedHealth';
 
 // Illustrated vector art, drawn as inline SVG in a 120x160 box. Every figure is filled and
 // gradient-shaded (not just outlined) with a bold ink rim, textured fur/scale linework, and
@@ -887,6 +889,11 @@ interface UnitSpriteProps {
    * the moment the attacker's sprite actually arrives instead of the instant the engine resolves
    * it. Undefined/0 for hits with no in-flight attacker (heals, poison ticks, misc self effects). */
   hitDelayMs?: number;
+  /** Which spot on the field this unit stands in (BattleScreen numbers them: Mahery, companion,
+   * then the enemies in order). Each spot rests on its own out-of-step copy of the idle clip, so
+   * fighters standing side by side - especially enemies of one kind, which share a clip - never
+   * breathe in lockstep. See idlePhase.ts. */
+  idleSlot?: number;
 }
 
 /** How long the attacker holds at the target and plays its attack, for anim styles that don't
@@ -929,8 +936,14 @@ export function attackTimingFor(unit: Unit, distance: number | undefined) {
 
 
 /** A combat unit's figure with floating damage numbers and a name label. */
-export function UnitSprite({ unit, size = 170, active, targetable, onClick, label, delay, travelDx, travelDy, hitDelayMs }: UnitSpriteProps) {
-  const down = unit.health <= 0;
+export function UnitSprite({ unit, size = 170, active, targetable, onClick, label, delay, travelDx, travelDy, hitDelayMs, idleSlot = 0 }: UnitSpriteProps) {
+  const hit = unit.lastHit;
+  // `dead` is what the engine says (a unit that has taken its killing blow can no longer be
+  // targeted); `down` is what's on screen - it stays standing until the blow actually lands, at
+  // the same moment its health bar drops, instead of collapsing while the attacker is still
+  // hopping across the field. See usePresentedHealth.
+  const dead = unit.health <= 0;
+  const down = usePresentedHealth(unit, 0, hitDelayMs).health <= 0;
   const airborne = !down && unit.statuses.some((st) => st.id === 'airborne');
   const charging = !down && unit.statuses.some((st) => st.id === 'charging');
   // The death clip (when this art has one) plays its own real collapse-to-the-ground motion, so
@@ -938,10 +951,9 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
   // for it - has-death-clip is what does that. Grayscale/dim still layers on top either way.
   const deathClip = down ? deathClipFor(unit.art) : undefined;
   const cls = [
-    down ? 'down' : '', deathClip ? 'has-death-clip' : '', active ? 'active-glow' : '', targetable && !down ? 'targetable' : '',
+    down ? 'down' : '', deathClip ? 'has-death-clip' : '', active ? 'active-glow' : '', targetable && !dead ? 'targetable' : '',
     airborne ? 'airborne' : '', charging ? 'charging' : '', unit.corrupted ? 'corrupted-kin' : '',
   ].filter(Boolean).join(' ');
-  const hit = unit.lastHit;
   const anim = unit.lastAction?.anim;
   const attackCls = attackClassFor(anim);
   const attackAnimClip = combatAnimationFor(unit.art, unit.lastAction ? {
@@ -952,8 +964,10 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
   const distance = travelDx != null || travelDy != null ? Math.hypot(travelDx ?? 0, travelDy ?? 0) : undefined;
   const timing = attackTimingFor(unit, distance);
   // Resting pose when there's nothing more specific to show - loops on its own via the file's
-  // own embedded loop count, no JS timing needed.
+  // own embedded loop count, no JS timing needed. It's this slot's own out-of-step copy of the
+  // clip (idleSrc), so fighters that share a clip don't move in lockstep.
   const idleClip = idleClipFor(unit.art);
+  const idleSrc = useIdlePhase(idleClip?.src, idleSlot);
   // The target doesn't actually get hit the instant the engine resolves the action - it gets hit
   // when the attacker's sprite actually arrives. shownHit holds off on presenting the flinch,
   // impact flash, and floating number until hitDelayMs has passed, so a target visibly reacts in
@@ -982,8 +996,8 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
   // between being hit and acting again varies), so the reaction is dropped in the same render the
   // unit's own action changes, while the floating number (outside the anchor) plays out.
   const reactionHit = shown && shown.actionSeq === actionSeq ? shown.hit : undefined;
-  // A real hit shakes the target; a dodge or a killing blow (already collapsing) does not.
-  const flinch = !down && !!reactionHit && reactionHit.kind !== 'miss';
+  // A real hit shakes the target; a dodge or a killing blow (which is about to collapse) does not.
+  const flinch = !dead && !!reactionHit && reactionHit.kind !== 'miss';
   const impact = reactionHit && (reactionHit.kind === 'damage' || reactionHit.kind === 'crit') ? impactEffectFor(reactionHit.effectAnim) : null;
   // Two fighters should read as facing each other, not drift through a pose that turns one of
   // them away from the fight. Default to the resting 'front' pose; lean into the 'toward' (facing
@@ -1030,7 +1044,7 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
     : deathClip
     ? { src: deathClip.src, preMirrored: deathClip.preMirrored, key: 'death' }
     : idleClip
-    ? { src: idleClip.src, preMirrored: idleClip.preMirrored, key: 'idle' }
+    ? { src: idleSrc ?? idleClip.src, preMirrored: idleClip.preMirrored, key: 'idle' }
     : undefined;
   const pose: 'front' | 'toward' = active || hitFlash ? 'toward' : 'front';
   // atk-hop's shape (hop out, hold, hop back) is fixed CSS - its hold can't be exactly the
@@ -1062,13 +1076,13 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
             flip={unit.side === 'enemy'}
             className={cls}
             title={unit.name}
-            onClick={targetable && !down ? onClick : undefined}
+            onClick={targetable && !dead ? onClick : undefined}
             delay={delay}
             pose={pose}
             clipSrc={shownClip?.src}
             clipKey={shownClip?.key}
             clipPreMirrored={shownClip?.preMirrored}
-            restClipSrc={idleClip?.src}
+            restClipSrc={idleClip ? idleSrc ?? idleClip.src : undefined}
             restClipPreMirrored={idleClip?.preMirrored}
             clipEnding={shownClip?.ending}
           />

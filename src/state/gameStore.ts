@@ -55,6 +55,10 @@ interface GameState {
   dialogue: Dialogue | null;
   pendingEncounterId: string | null;
   battle: BattleState | null;
+  /** Counts battles begun this session. Battle event ids (`seq`) restart at 0 in every battle, and
+   * a retry replays the same opening, so BattleScreen keys its whole view on this to start each
+   * battle with fresh sprites and bars instead of carrying over the last one's presentation. */
+  battleRun: number;
   results: BattleResults | null;
   /** the currently-active generated off-road fight, if `battle.encounterId` points at one -
    * kept alongside `battle` since roaming encounters aren't in the static ENCOUNTERS list. */
@@ -152,6 +156,7 @@ export const useGame = create<GameState>((set, get) => ({
   dialogue: null,
   pendingEncounterId: null,
   battle: null,
+  battleRun: 0,
   results: null,
   roamingEncounter: null,
 
@@ -654,5 +659,5 @@ function beginBattle(
   let s = battle;
   let guard = 0;
   while (s.phase !== 'playerTurn' && s.phase !== 'victory' && s.phase !== 'defeat' && guard++ < 80) s = advance(s);
-  set({ battle: s, screen: 'battle', pendingEncounterId: null, dialogue: null });
+  set({ battle: s, battleRun: get().battleRun + 1, screen: 'battle', pendingEncounterId: null, dialogue: null });
 }

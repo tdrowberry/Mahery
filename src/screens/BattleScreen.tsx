@@ -7,6 +7,7 @@ import {
   activeUnit, canSelect, needsTargetPick, otherPartyUnit, statusLabel, validTargets, type Unit,
 } from '../engine/combat';
 import { UnitSprite, attackTimingFor } from '../components/Sprite';
+import { usePresentedHealth } from '../components/usePresentedHealth';
 import { ActionBar } from '../components/ActionBar';
 import { CombatLog } from '../components/CombatLog';
 
@@ -48,16 +49,30 @@ const STANCES: { id: Stance; label: string; hint: string }[] = [
   { id: 'support', label: 'Support', hint: 'Leans on healing and defense, attacks when there is nothing better to do.' },
 ];
 
-function HudRow({ unit, active, directing, align }: { unit: Unit; active?: boolean; directing?: boolean; align: 'left' | 'right' }) {
-  const hp = Math.max(0, unit.health) / unit.maxHealth;
-  const sp = unit.maxSpirit > 0 ? unit.spirit / unit.maxSpirit : 0;
+/** Health as the bars show it: a hit's damage lands when the attacker actually arrives - the same
+ * moment the slash marks and damage number appear on the target - not the instant the engine
+ * resolves the action. hitDelayMs is that arrival time (see hitDelayFor in BattleScreen). */
+function usePresentedUnitHealth(unit: Unit, hitDelayMs: number) {
   const shield = unit.statuses.find((s) => s.id === 'guard')?.magnitude ?? 0;
+  return usePresentedHealth(unit, shield, hitDelayMs);
+}
+
+/** The teammate readout under the "Direct X instead" button - same timing as the HUD bars. */
+function TeamMeta({ unit, hitDelayMs }: { unit: Unit; hitDelayMs: number }) {
+  const shown = usePresentedUnitHealth(unit, hitDelayMs);
+  return <span className="muted small">{unit.name} · {shown.health}/{unit.maxHealth}</span>;
+}
+
+function HudRow({ unit, active, directing, align, hitDelayMs }: { unit: Unit; active?: boolean; directing?: boolean; align: 'left' | 'right'; hitDelayMs: number }) {
+  const shown = usePresentedUnitHealth(unit, hitDelayMs);
+  const hp = Math.max(0, shown.health) / unit.maxHealth;
+  const sp = unit.maxSpirit > 0 ? unit.spirit / unit.maxSpirit : 0;
   return (
-    <div className={`hud-row ${align} ${active ? 'active' : ''} ${unit.health <= 0 ? 'down' : ''}`} data-testid={`hud-${unit.id}`}>
+    <div className={`hud-row ${align} ${active ? 'active' : ''} ${shown.health <= 0 ? 'down' : ''}`} data-testid={`hud-${unit.id}`}>
       <div className="hud-bar hp">
         <div className="fill" style={{ width: `${hp * 100}%` }} />
         <span className="hud-name">{unit.name}{directing && <span className="dir-badge" title="You are directing this one">★</span>}</span>
-        <span className="hud-num">{unit.health} <span className="max">{unit.maxHealth}</span>{shield > 0 && <span className="shield-num"> +{shield}</span>}</span>
+        <span className="hud-num">{shown.health} <span className="max">{unit.maxHealth}</span>{shown.shield > 0 && <span className="shield-num"> +{shown.shield}</span>}</span>
       </div>
       <div className="hud-bar sp">
         <div className="fill" style={{ width: `${sp * 100}%` }} />
@@ -76,6 +91,7 @@ function HudRow({ unit, active, directing, align }: { unit: Unit; active?: boole
 
 export function BattleScreen() {
   const battle = useGame((s) => s.battle);
+  const battleRun = useGame((s) => s.battleRun);
   const roamingEncounter = useGame((s) => s.roamingEncounter);
   const battleUseSkill = useGame((s) => s.battleUseSkill);
   const battleSelect = useGame((s) => s.battleSelect);
@@ -191,12 +207,12 @@ export function BattleScreen() {
   };
 
   return (
-    <div className="game arena">
+    <div className="game arena" key={battleRun}>
       {/* top HUD: party left, enemies right, round in the middle */}
       <div className="steel hud">
         <div className="hud-side">
-          <HudRow unit={battle.units.mahery} active={battle.currentActor === 'mahery'} directing={battle.activeId === 'mahery'} align="left" />
-          <HudRow unit={battle.units.companion} active={battle.currentActor === 'companion'} directing={battle.activeId === 'companion'} align="left" />
+          <HudRow unit={battle.units.mahery} active={battle.currentActor === 'mahery'} directing={battle.activeId === 'mahery'} align="left" hitDelayMs={hitDelayFor(battle.units.mahery)} />
+          <HudRow unit={battle.units.companion} active={battle.currentActor === 'companion'} directing={battle.activeId === 'companion'} align="left" hitDelayMs={hitDelayFor(battle.units.companion)} />
         </div>
         <div className="hud-mid">
           <div className="round-badge" title="Round">{battle.round}</div>
@@ -205,7 +221,7 @@ export function BattleScreen() {
           </div>
         </div>
         <div className="hud-side right">
-          {enemies.map((e) => <HudRow key={e.id} unit={e} active={battle.currentActor === e.id} align="right" />)}
+          {enemies.map((e) => <HudRow key={e.id} unit={e} active={battle.currentActor === e.id} align="right" hitDelayMs={hitDelayFor(e)} />)}
         </div>
       </div>
 
@@ -241,6 +257,7 @@ export function BattleScreen() {
                   travelDx={v?.dx}
                   travelDy={v?.dy}
                   hitDelayMs={hitDelayFor(unit)}
+                  idleSlot={role === 'mahery' ? 0 : 1}
                 />
               </div>
             );
@@ -263,6 +280,7 @@ export function BattleScreen() {
                   travelDx={v?.dx}
                   travelDy={v?.dy}
                   hitDelayMs={hitDelayFor(e)}
+                  idleSlot={2 + i}
                 />
               </div>
             );
@@ -296,7 +314,7 @@ export function BattleScreen() {
             &lt; Direct {other.name} instead &gt;
           </button>
           <div className="team-meta">
-            <span className="muted small">{other.name} · {other.health}/{other.maxHealth}</span>
+            <TeamMeta unit={other} hitDelayMs={hitDelayFor(other)} />
           </div>
           <div className="stance-row">
             {STANCES.map((st) => (
