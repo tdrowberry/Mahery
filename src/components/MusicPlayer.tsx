@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useGame } from '../state/gameStore';
 import { useAudioSettings } from '../state/audioStore';
+import { asset } from '../lib/asset';
 
 // Three music zones instead of one track per screen: battle has its own pool, everything that
 // isn't the title screen or a fight (hub, skills, inventory, story, bond, results, ending) shares
@@ -11,9 +12,9 @@ import { useAudioSettings } from '../state/audioStore';
 type Zone = 'title' | 'battle' | 'camp';
 
 const ZONE_TRACKS: Record<Zone, string[]> = {
-  title: ['/audio/main-theme.mp3'],
-  battle: ['/audio/fight-1.mp3', '/audio/fight-2.mp3'],
-  camp: ['/audio/camp-1.mp3', '/audio/camp-2.mp3', '/audio/camp-3.mp3'],
+  title: [asset('/audio/main-theme.mp3')],
+  battle: [asset('/audio/fight-1.mp3'), asset('/audio/fight-2.mp3')],
+  camp: [asset('/audio/camp-1.mp3'), asset('/audio/camp-2.mp3'), asset('/audio/camp-3.mp3')],
 };
 
 function zoneForScreen(screen: string): Zone {

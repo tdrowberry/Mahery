@@ -5,6 +5,7 @@ import { combatAnimationFor } from '../data/combatAnimations';
 import { idleClipFor, deathClipFor } from '../data/idleDeathAnimations';
 import { useIdlePhase } from './idlePhase';
 import { usePresentedHealth } from './usePresentedHealth';
+import { asset } from '../lib/asset';
 
 // Illustrated vector art, drawn as inline SVG in a 120x160 box. Every figure is filled and
 // gradient-shaded (not just outlined) with a bold ink rim, textured fur/scale linework, and
@@ -676,7 +677,7 @@ interface SpriteProps {
 // driving that lives in global.css under ".photo-sprite" (a 2-layer and a 3-layer cycle, picked
 // by set size below). Art ids missing from this map (e.g. platypus, falcon-hero) keep using
 // their SVG figure from FIGURES instead.
-const photoSet = (dir: string) => [`${dir}/front.png`, `${dir}/right.png`, `${dir}/left.png`];
+const photoSet = (dir: string) => [asset(`${dir}/front.png`), asset(`${dir}/right.png`), asset(`${dir}/left.png`)];
 const PHOTO_SETS: Partial<Record<ArtId, string[]>> = {
   mahery: photoSet('/art/mahery/default'),
   'mahery-bear': photoSet('/art/mahery/bear'),

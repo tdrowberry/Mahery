@@ -8,6 +8,7 @@ import {
 } from '../engine/combat';
 import { UnitSprite, attackTimingFor } from '../components/Sprite';
 import { usePresentedHealth } from '../components/usePresentedHealth';
+import { asset } from '../lib/asset';
 import { ActionBar } from '../components/ActionBar';
 import { CombatLog } from '../components/CombatLog';
 
@@ -332,7 +333,7 @@ export function BattleScreen() {
         </div>
         <div className="steel ctl-center">
           <button className="round-btn" onClick={() => setConfirmingExit(true)} title="Exit fight and return to camp" data-testid="home-exit-btn">
-            <img className="round-btn-img" src="/art/branding/logo-alt.jpg" alt="" />
+            <img className="round-btn-img" src={asset('/art/branding/logo-alt.jpg')} alt="" />
           </button>
           <div className="ctl-center-row">
             <button className="mini-btn" onClick={openSettings} title="Settings" data-testid="battle-settings-btn">⚙</button>

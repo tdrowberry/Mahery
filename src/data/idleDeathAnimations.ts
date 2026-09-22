@@ -1,5 +1,6 @@
 import type { ArtId } from './types';
 import { HERO_ANIMALS, ENEMY_SPECIES, type HeroAnimal } from './combatAnimations';
+import { asset } from '../lib/asset';
 
 export interface IdleDeathClip {
   src: string;
@@ -20,7 +21,7 @@ const IDLE_MS = 2267;
 const DEATH_MS = 140 + 120 + 130 + 150 + 180 + 850;
 
 const clip = (name: string, state: 'idle' | 'death', preMirrored?: boolean): IdleDeathClip => ({
-  src: `/art/animations/idle-death/${name}-${state}-animated-v2.webp`,
+  src: asset(`/art/animations/idle-death/${name}-${state}-animated-v2.webp`),
   ms: state === 'idle' ? IDLE_MS : DEATH_MS,
   loop: state === 'idle',
   preMirrored,

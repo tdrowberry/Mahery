@@ -1,4 +1,5 @@
 import type { Attributes, GemDef, GemKind } from './types';
+import { asset } from '../lib/asset';
 
 // Magical gemstones worn on a 5-slot necklace instead of body-slot armor. Every gem is one of
 // 5 kinds (one per attribute, plus 'guard' for flat damage reduction) and one of 5 cut levels -
@@ -29,8 +30,8 @@ export const GEM_KIND_STONE: Record<GemKind, string> = {
 // necklace instead of a flat color swatch. Speed maps to the reference's blue opal rather than
 // a yellow citrine - there was no yellow stone in the reference set to match the name.
 export const GEM_KIND_ICON: Record<GemKind, string> = {
-  vitality: '/art/gems/green.png', strength: '/art/gems/red.png', instinct: '/art/gems/purple.png',
-  speed: '/art/gems/blue.png', guard: '/art/gems/black.png',
+  vitality: asset('/art/gems/green.png'), strength: asset('/art/gems/red.png'), instinct: asset('/art/gems/purple.png'),
+  speed: asset('/art/gems/blue.png'), guard: asset('/art/gems/black.png'),
 };
 export const LEVEL_LABEL = ['Chipped', 'Set', 'Deep', 'Flawless', 'Radiant'];
 const LEVEL_SELL_VALUE = [6, 14, 28, 50, 85];

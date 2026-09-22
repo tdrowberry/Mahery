@@ -5,8 +5,9 @@ import { listSlots, type SlotNumber } from '../state/saveFormat';
 import { getAnimal } from '../data/animals';
 import { AI_BLURB } from '../data/terms';
 import { Sprite } from '../components/Sprite';
+import { asset } from '../lib/asset';
 
-const LOGO_SRC = '/art/branding/logo-main.jpg';
+const LOGO_SRC = asset('/art/branding/logo-main.jpg');
 
 export function TitleScreen() {
   const newGame = useGame((s) => s.newGame);

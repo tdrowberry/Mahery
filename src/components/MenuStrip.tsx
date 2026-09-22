@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useGame, type Screen } from '../state/gameStore';
 import { useUiStore } from '../state/uiStore';
 import { getChapter, getEncounter } from '../data/encounters';
+import { asset } from '../lib/asset';
 
 /** Sonny 2's bottom bar: menu buttons left, world button center, zone progress right. */
 export function MenuStrip({ current }: { current: Screen }) {
@@ -40,7 +41,7 @@ export function MenuStrip({ current }: { current: Screen }) {
       </div>
       <div className="steel ms-center">
         <button className={`round-btn ${current === 'hub' ? 'on' : ''}`} onClick={() => goTo('hub')} title="The Road" data-testid="ms-world">
-          <img className="round-btn-img" src="/art/branding/logo-alt.jpg" alt="" />
+          <img className="round-btn-img" src={asset('/art/branding/logo-alt.jpg')} alt="" />
         </button>
       </div>
       {confirmingQuit && (

@@ -1,6 +1,7 @@
 import { useGame } from '../state/gameStore';
 import { GEM_KIND_COLOR, GEM_KIND_ICON, GEM_KIND_LABEL, getGem } from '../data/gems';
 import { MenuStrip } from '../components/MenuStrip';
+import { asset } from '../lib/asset';
 
 /** Where each of the 5 necklace slots actually sits on necklace-band.png (measured against the
  * reference photo showing the band with all 5 stones already set) and how far it's rotated off
@@ -35,7 +36,7 @@ export function InventoryScreen() {
         <div className="steel ab-panel">
           <div className="ab-title">Necklace</div>
           <div className="necklace-display">
-            <img className="necklace-band" src="/art/necklace-band.png" alt="" />
+            <img className="necklace-band" src={asset('/art/necklace-band.png')} alt="" />
             {necklace.map((id, i) => {
               const socket = NECKLACE_SOCKETS[i];
               const style = { left: `${socket.xPct}%`, top: `${socket.yPct}%` };
