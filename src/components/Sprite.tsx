@@ -936,6 +936,23 @@ export function attackTimingFor(unit: Unit, distance: number | undefined) {
 }
 
 
+/** Exact arrival/hold/return boundaries, shared with impact and clip timing. */
+export function travelKeyframes(name: string, timing: NonNullable<ReturnType<typeof attackTimingFor>>, dx: number, dy: number) {
+  const arrive = timing.travelInMs / timing.totalMs * 100;
+  const depart = (timing.travelInMs + timing.holdMs) / timing.totalMs * 100;
+  const lift = Math.min(18, Math.hypot(dx, dy) * 0.06);
+  const pose = (x: number, y: number) => `transform: translate3d(${x}px,${y}px,0)`;
+  return `@keyframes ${name} {
+    0% { ${pose(0, 0)}; }
+    ${arrive * 0.18}% { ${pose(-dx * 0.025, 2)}; }
+    ${arrive * 0.58}% { ${pose(dx * 0.48, dy * 0.48 - lift)}; }
+    ${arrive}% { ${pose(dx, dy)}; }
+    ${depart}% { ${pose(dx, dy)}; }
+    ${depart + (100 - depart) * 0.48}% { ${pose(dx * 0.5, dy * 0.5 - lift * 0.65)}; }
+    100% { ${pose(0, 0)}; }
+  }`;
+}
+
 /** A combat unit's figure with floating damage numbers and a name label. */
 export function UnitSprite({ unit, size = 170, active, targetable, onClick, label, delay, travelDx, travelDy, hitDelayMs, idleSlot = 0 }: UnitSpriteProps) {
   const hit = unit.lastHit;
@@ -998,7 +1015,7 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
   // unit's own action changes, while the floating number (outside the anchor) plays out.
   const reactionHit = shown && shown.actionSeq === actionSeq ? shown.hit : undefined;
   // A real hit shakes the target; a dodge or a killing blow (which is about to collapse) does not.
-  const flinch = !dead && !!reactionHit && reactionHit.kind !== 'miss';
+  const flinch = !dead && !!reactionHit && ['damage', 'crit', 'poison'].includes(reactionHit.kind);
   const impact = reactionHit && (reactionHit.kind === 'damage' || reactionHit.kind === 'crit') ? impactEffectFor(reactionHit.effectAnim) : null;
   // Two fighters should read as facing each other, not drift through a pose that turns one of
   // them away from the fight. Default to the resting 'front' pose; lean into the 'toward' (facing
@@ -1021,6 +1038,13 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
       void image.decode?.().catch(() => undefined);
     });
   }, [idleClip?.src, deathClip?.src, attackAnimClip?.src]);
+  useEffect(() => {
+    // Warm equipped clips during the idle turn, before the first click needs them.
+    for (const skill of unit.skills) {
+      const clip = skill && combatAnimationFor(unit.art, skill);
+      if (clip) { const image = new Image(); image.src = clip.src; void image.decode?.().catch(() => undefined); }
+    }
+  }, [unit.art]);
   const [playingClip, setPlayingClip] = useState<{ src: string; seq: number; preMirrored?: boolean; ending?: boolean } | null>(null);
   useEffect(() => {
     if (!attackAnimClip || !timing) { setPlayingClip(null); return; }
@@ -1048,22 +1072,18 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
     ? { src: idleSrc ?? idleClip.src, preMirrored: idleClip.preMirrored, key: 'idle' }
     : undefined;
   const pose: 'front' | 'toward' = active || hitFlash ? 'toward' : 'front';
-  // atk-hop's shape (hop out, hold, hop back) is fixed CSS - its hold can't be exactly the
-  // clip's own runtime duration the way a JS-driven animation could manage, but CSS keyframe
-  // animations are the one thing in this whole sprite system proven to actually run frame by
-  // frame in every environment this game has been tested in; the Web Animations API this used to
-  // be does not (its timeline just never advances here, confirmed directly - getAnimations()
-  // reports "running" but currentTime stuck at 0 for seconds on end, matching the same
-  // rAF/compositing gap other animation work in this project has already hit). --hop-dx/--hop-dy
-  // carry the real, signed, measured distance; --hop-glow lights venom's poison tint mid-hold.
-  const hasHop = isTravelStyle(anim) && (travelDx || travelDy);
+  // Generate CSS offsets from the same clock used by clips and target reactions.
+  // CSS runs reliably on WebViews too, without relying on a second animation timeline.
+  const motionId = `motion${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  const hasHop = isTravelStyle(anim) && !!(travelDx || travelDy);
+  const motionCss = timing && hasHop ? travelKeyframes(motionId, timing, travelDx ?? 0, travelDy ?? 0) : '';
   const anchorStyle = {
-    ...(timing != null ? { animationDuration: `${timing.totalMs}ms` } : {}),
-    ...(hasHop ? { '--hop-dx': `${travelDx ?? 0}px`, '--hop-dy': `${travelDy ?? 0}px` } : {}),
-    ...(hasHop && anim === 'venom' ? { '--hop-glow': 'drop-shadow(0 0 11px #9ad14a)' } : {}),
+    ...(timing ? { animationDuration: `${timing.totalMs}ms` } : {}),
+    ...(hasHop ? { animationName: motionId } : {}),
   } as CSSProperties;
   return (
     <div className="sprite-wrap">
+      {motionCss && <style>{motionCss}</style>}
       <div
         key={`act-${unit.lastAction?.seq ?? 0}`}
         className={`attack-anchor ${attackCls}`}
@@ -1088,15 +1108,16 @@ export function UnitSprite({ unit, size = 170, active, targetable, onClick, labe
             clipEnding={shownClip?.ending}
           />
           {impact === 'slash' && (
-            <div className="impact-slash">
+            <div key={reactionHit?.seq} className="impact-slash">
               <span className="slash-mark" />
               <span className="slash-mark" />
               <span className="slash-mark" />
             </div>
           )}
-          {impact === 'beam' && <div className={`impact-beam ${unit.side === 'enemy' ? 'from-left' : 'from-right'}`} />}
+          {impact === 'beam' && <div key={reactionHit?.seq} className={`impact-beam ${unit.side === 'enemy' ? 'from-left' : 'from-right'}`} />}
         </div>
       </div>
+      {reactionHit && ['heal', 'shield'].includes(reactionHit.kind) && <div key={`support-${reactionHit.seq}`} className={`support-impact ${reactionHit.kind}`} />}
       {shownHit && <span key={shownHit.seq} className={`float ${shownHit.kind}`}>{FLOAT_LABEL[shownHit.kind](shownHit.amount)}</span>}
       {label !== null && <div className="sprite-label">{label ?? unit.name}</div>}
     </div>

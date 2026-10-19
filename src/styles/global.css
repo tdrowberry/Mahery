@@ -309,27 +309,9 @@ select {
 /* .attack-anchor wraps the sprite so its own idle bob (a separate `translate` property on
    .sprite) never fights this wrapper's `transform` animation. */
 
-/* Strike/charge/venom/diveStrike (anything that closes real distance to a target) all share one
-   shape: hop out, hold at the target, hop back - a calm, readable beat instead of the old lunge-
-   and-swing-at-once arc, with the actual attack (the hand-animated clip, or nothing for units
-   without one) only showing once the hop-out is done, timed in Sprite.tsx. --hop-dx/--hop-dy
-   (set per-attack by UnitSprite, real signed px) carry both the direction AND the distance, so
-   this one keyframe set covers every attacker/target pair - no more separate -r/-l variants or
-   per-style tuning, since the clip itself is what actually carries each move's flavor now.
-   The hold's length is only approximate (a fixed 25%-75% of the total, not literally the clip's
-   exact runtime duration) rather than exact-to-the-frame: a runtime-computed hold length needs
-   the Web Animations API, whose timeline does not reliably advance in every environment this
-   game runs in (confirmed directly - see the comment on hasHop in Sprite.tsx), where a plain CSS
-   @keyframes animation like this one has been the one thing proven to actually run everywhere. */
-@keyframes atk-hop {
-  0%   { transform: translate(0,0); filter: none; }
-  12%  { transform: translate(calc(var(--hop-dx, 0px) * 0.5), calc(var(--hop-dy, 0px) * 0.5 - 16px)); }
-  25%  { transform: translate(var(--hop-dx, 0px), var(--hop-dy, 0px)); filter: var(--hop-glow, none); }
-  75%  { transform: translate(var(--hop-dx, 0px), var(--hop-dy, 0px)); filter: var(--hop-glow, none); }
-  88%  { transform: translate(calc(var(--hop-dx, 0px) * 0.5), calc(var(--hop-dy, 0px) * 0.5 - 16px)); }
-  100% { transform: translate(0,0); filter: none; }
-}
-.attack-anchor.atk-hop { animation: atk-hop 1.2s ease-in-out; }
+/* Travel keyframes are authored from each action's measured distance and clip duration. */
+.attack-anchor.atk-hop { animation-timing-function: cubic-bezier(.3,0,.25,1); animation-fill-mode: both; }
+.attack-anchor { position: relative; will-change: transform; }
 
 /* cast: self/ally skills - a pulse of light, no travel. */
 @keyframes atk-cast {
@@ -379,15 +361,15 @@ select {
    projected or cast at range shoots in as a beam of light from whichever side the attacker is on. */
 .impact-slash { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
 .slash-mark {
-  position: absolute; left: 50%; top: 50%; width: 150%; height: 7px;
+  position: absolute; left: 50%; top: 50%; width: 65%; height: 4px;
   background: linear-gradient(90deg, transparent 0%, #ff2b2b 18%, #ffb3ab 50%, #ff2b2b 82%, transparent 100%);
   box-shadow: 0 0 6px 1px rgba(255, 40, 40, 0.7);
   transform: translate(-50%, -50%) rotate(-35deg) scaleX(0); opacity: 0;
   animation: slash-reveal 0.45s ease-out both;
 }
-.slash-mark:nth-child(1) { top: 32%; animation-delay: 0s; }
+.slash-mark:nth-child(1) { top: 43%; animation-delay: 0s; }
 .slash-mark:nth-child(2) { top: 50%; animation-delay: 0.07s; }
-.slash-mark:nth-child(3) { top: 68%; animation-delay: 0.14s; }
+.slash-mark:nth-child(3) { top: 57%; animation-delay: 0.14s; }
 @keyframes slash-reveal {
   0% { opacity: 0; transform: translate(-50%, -50%) rotate(-35deg) scaleX(0); }
   18% { opacity: 1; transform: translate(-50%, -50%) rotate(-35deg) scaleX(1.08); }
@@ -811,3 +793,30 @@ select {
   .controls { grid-template-columns: 1fr; }
   .hud { grid-template-columns: 1fr; }
 }
+
+/* Target-first combat controls. Keep transparent field layers from swallowing party clicks. */
+.field-party, .field-enemies { pointer-events: none; }
+.party-slot, .enemy-slot { pointer-events: auto; }
+.party-slot:focus-visible, .enemy-slot:focus-visible, .chosen-target { outline: 2px solid #ffe0a0; outline-offset: 4px; }
+.chosen-target { background: rgba(255, 213, 130, .12); }
+.target-moves { flex: 1; min-width: 0; }
+.target-menu-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.target-move-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; max-height: 220px; overflow-y: auto; }
+.target-move { display: flex; gap: 8px; align-items: center; text-align: left; padding: 9px; color: var(--text); background: rgba(15, 20, 23, .85); border: 1px solid #7b6b54; border-radius: 8px; cursor: pointer; }
+.target-move svg { flex-shrink: 0; }
+.target-move small { display: block; font-size: 11px; margin-top: 3px; opacity: .8; }
+.target-move:hover:not(:disabled), .target-move:focus-visible { border-color: #ffe0a0; background: #3c3528; }
+.target-move:disabled { opacity: .45; cursor: not-allowed; }
+.support-impact { position: absolute; inset: 22% 12% 10%; pointer-events: none; border: 3px solid #9fffc9; border-radius: 50%; box-shadow: 0 0 22px #65eea1; animation: support-bloom .75s ease-out both; }
+.support-impact.shield { border-color: #9bdfff; box-shadow: 0 0 22px #6bbcff; }
+@keyframes support-bloom { from { opacity: 0; transform: scale(.6); } 25% { opacity: 1; } to { opacity: 0; transform: scale(1.2); } }
+@media (max-width: 650px) { .target-move-grid { grid-template-columns: 1fr; max-height: 170px; } }
+@media (prefers-reduced-motion: reduce) {
+  .attack-anchor { animation-name: none !important; }
+  .flinch, .support-impact { animation-duration: .01ms; }
+}
+
+.field .sprite-label { position: absolute; top: 100%; white-space: nowrap; }
+.enemy-slot { cursor: pointer; }
+.target-moves { min-height: 200px; }
+@media (max-width: 650px) { .target-moves { min-height: 150px; } }

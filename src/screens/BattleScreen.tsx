@@ -4,12 +4,12 @@ import { useUiStore } from '../state/uiStore';
 import { CHAPTER_BACKGROUNDS } from '../data/backgrounds';
 import type { ActiveSkill, Stance, StatusId } from '../data/types';
 import {
-  activeUnit, canSelect, needsTargetPick, otherPartyUnit, statusLabel, validTargets, type Unit,
+  activeUnit, canSelect, checkSkillUsable, otherPartyUnit, statusLabel, validTargets, type Unit,
 } from '../engine/combat';
 import { UnitSprite, attackTimingFor } from '../components/Sprite';
 import { usePresentedHealth } from '../components/usePresentedHealth';
 import { asset } from '../lib/asset';
-import { ActionBar } from '../components/ActionBar';
+import { SkillIcon } from '../components/Icon';
 import { CombatLog } from '../components/CombatLog';
 
 const ENEMY_STEP_MS = 700;
@@ -103,7 +103,8 @@ export function BattleScreen() {
   const leaveBattle = useGame((s) => s.leaveBattle);
   const finishBattle = useGame((s) => s.finishBattle);
   const openSettings = useUiStore((s) => s.openSettings);
-  const [armed, setArmed] = useState<ActiveSkill | null>(null);
+  const [targetId, setTargetId] = useState<string | null>(null);
+  const [settledSeq, setSettledSeq] = useState(0);
   const [showLog, setShowLog] = useState(false);
   const [confirmingExit, setConfirmingExit] = useState(false);
   // Each party/enemy slot registers its own DOM node here so an attacking unit's sprite can
@@ -120,7 +121,10 @@ export function BattleScreen() {
   // must run before the `if (!battle)` early return - it doesn't touch `battle` itself, only
   // whatever unit it's given, so it's safe to define before battle is known non-null.
   const travelVectorFor = (unit: Unit): { dx: number; dy: number } | undefined => {
-    const targetId = unit.lastAction?.targetId;
+    const recipient = Object.values(battle?.units ?? {}).find((candidate) =>
+      candidate.side !== unit.side && candidate.lastHit?.actionSeq === unit.lastAction?.seq &&
+      ['damage', 'crit', 'miss'].includes(candidate.lastHit?.kind ?? ''));
+    const targetId = recipient?.id ?? unit.lastAction?.targetId;
     if (!targetId) return undefined;
     const from = slotRefs.current[unit.id];
     const to = slotRefs.current[targetId];
@@ -128,9 +132,9 @@ export function BattleScreen() {
     const a = from.getBoundingClientRect();
     const b = to.getBoundingClientRect();
     const rawDx = (b.left + b.width / 2) - (a.left + a.width / 2);
-    const rawDy = (b.top + b.height / 2) - (a.top + a.height / 2);
+    const rawDy = b.bottom - a.bottom;
     const dist = Math.hypot(rawDx, rawDy);
-    const STOP_SHORT_PX = 90; // leave a gap so attacker and target don't fully overlap at full reach
+    const STOP_SHORT_PX = (a.width + b.width) * 0.28; // leave a gap so attacker and target don't fully overlap at full reach
     if (dist <= STOP_SHORT_PX) return { dx: 0, dy: 0 };
     const scale = (dist - STOP_SHORT_PX) / dist;
     return { dx: rawDx * scale, dy: rawDy * scale };
@@ -153,35 +157,44 @@ export function BattleScreen() {
     return () => clearTimeout(t);
   }, [battle, battleAdvance]);
 
-  useEffect(() => { setArmed(null); }, [battle?.currentActor, battle?.round]);
+  const latestSeq = Math.max(0, ...Object.values(battle?.units ?? {}).map((u) => u.lastAction?.seq ?? 0));
+  useEffect(() => {
+    setSettledSeq(0);
+    if (!battle || !latestSeq) return;
+    const actor = Object.values(battle.units).find((u) => u.lastAction?.seq === latestSeq)!;
+    const v = travelVectorFor(actor);
+    const duration = attackTimingFor(actor, v ? Math.hypot(v.dx, v.dy) : undefined)?.totalMs ?? ENEMY_STEP_MS;
+    const timer = setTimeout(() => setSettledSeq(latestSeq), duration);
+    return () => clearTimeout(timer);
+  }, [latestSeq, battleRun]);
+  useEffect(() => { setTargetId(null); }, [battle?.currentActor, battle?.round, battle?.activeId]);
+  useEffect(() => {
+    const close = (e: KeyboardEvent) => { if (e.key === 'Escape') setTargetId(null); };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, []);
 
   if (!battle) return null;
   const enc = resolveEncounter(roamingEncounter, battle.encounterId);
   const bg = CHAPTER_BACKGROUNDS[enc.chapter];
-  const directed = activeUnit(battle); // who the player is currently giving orders to
+  const directed = battle.phase === 'playerTurn' && battle.currentActor ? battle.units[battle.currentActor] : activeUnit(battle); // who the player is currently giving orders to
   const other = otherPartyUnit(battle); // fights automatically per the ally stance
   const acting = battle.currentActor ? battle.units[battle.currentActor] : null;
   const enemies = battle.enemyIds.map((id) => battle.units[id]);
-  const playerTurn = battle.phase === 'playerTurn';
+  const playerTurn = battle.phase === 'playerTurn' && settledSeq >= latestSeq;
   const selectProblem = canSelect(battle, other.id === 'mahery' ? 'mahery' : 'companion');
   const over = battle.phase === 'victory' || battle.phase === 'defeat';
 
+  const target = targetId ? battle.units[targetId] : undefined;
+  const targetSkills = target ? directed.skills.filter((skill): skill is ActiveSkill =>
+    !!skill && validTargets(battle, directed.id, skill.target).includes(target.id)) : [];
   const pick = (skill: ActiveSkill) => {
-    if (!playerTurn) return;
-    if (needsTargetPick(skill)) {
-      const targets = validTargets(battle, directed.id, skill.target);
-      if (targets.length === 1) { battleUseSkill(skill.id, targets[0]); setArmed(null); return; }
-      setArmed(armed?.id === skill.id ? null : skill);
-      return;
-    }
-    battleUseSkill(skill.id);
-    setArmed(null);
+    if (!playerTurn || !target || checkSkillUsable(battle, directed.id, skill)) return;
+    battleUseSkill(skill.id, target.id);
+    setTargetId(null);
   };
-
-  const clickEnemy = (id: string) => {
-    if (!armed || !playerTurn) return;
-    battleUseSkill(armed.id, id);
-    setArmed(null);
+  const chooseTarget = (id: string) => {
+    if (playerTurn && battle.units[id].health > 0) setTargetId(id);
   };
 
   const select = (unitId: 'mahery' | 'companion') => {
@@ -200,7 +213,7 @@ export function BattleScreen() {
   // poison ticks, and other hits with no in-flight attacker stay instant).
   const hitDelayFor = (target: Unit): number => {
     const attacker = Object.values(battle.units).find((u) => (
-      u.lastAction?.targetId === target.id && u.lastAction.seq === latestActionSeq
+      u.lastAction?.seq === target.lastHit?.actionSeq && u.lastAction?.seq === latestActionSeq
     ));
     if (!attacker) return 0;
     const v = travelVectorFor(attacker);
@@ -234,7 +247,7 @@ export function BattleScreen() {
         />
         <div className="field-title">{enc.name}</div>
         {battle.banner && <div className="banner" data-testid="banner">{battle.banner}</div>}
-        {armed && !battle.banner && <div className="banner hint-banner">Choose a target for {armed.name}.</div>}
+        {playerTurn && !battle.banner && <div className="banner hint-banner">{target ? `Choose a move for ${target.name}` : "Select an enemy to attack, or a teammate to heal or buff."}</div>}
         <div className="field-party">
           {(['mahery', 'companion'] as const).map((role) => {
             const { style, scale } = partySlotLayout(role);
@@ -245,8 +258,8 @@ export function BattleScreen() {
                 key={role}
                 ref={setSlotRef(role)}
                 style={style}
-                className={`party-slot ${battle.activeId === role ? 'directing' : ''}`}
-                onClick={() => select(role)}
+                className={`party-slot ${battle.activeId === role ? 'directing' : ''} ${targetId === role ? 'chosen-target' : ''}`} role="button" tabIndex={playerTurn && unit.health > 0 ? 0 : -1} aria-label={`Target ${unit.name}`} aria-pressed={targetId === role} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); chooseTarget(role); } }}
+                onClick={() => chooseTarget(role)}
                 data-testid={`select-${role}`}
               >
                 <UnitSprite
@@ -269,14 +282,14 @@ export function BattleScreen() {
             const { style, scale } = enemySlotLayout(i, enemies.length);
             const v = travelVectorFor(e);
             return (
-              <div key={e.id} ref={setSlotRef(e.id)} style={style} className="enemy-slot" data-testid={`enemy-${e.id}`}>
+              <div key={e.id} ref={setSlotRef(e.id)} style={style} className={`enemy-slot ${targetId === e.id ? 'chosen-target' : ''}`} role="button" tabIndex={playerTurn && e.health > 0 ? 0 : -1} aria-label={`Target ${e.name}`} aria-pressed={targetId === e.id} onClick={() => chooseTarget(e.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); chooseTarget(e.id); } }} data-testid={`enemy-${e.id}`}>
                 <UnitSprite
                   unit={e}
                   size={BASE_SIZE * scale}
                   active={battle.currentActor === e.id}
-                  targetable={!!armed && playerTurn}
-                  onClick={() => clickEnemy(e.id)}
-                  label={armed && playerTurn && e.health > 0 ? e.name : null}
+                  targetable={playerTurn}
+
+                  label={playerTurn && e.health > 0 ? e.name : null}
                   delay={0.4 * (i + 1)}
                   travelDx={v?.dx}
                   travelDy={v?.dy}
@@ -288,7 +301,7 @@ export function BattleScreen() {
           })}
         </div>
 
-        {over && (
+        {over && settledSeq >= latestSeq && (
           <div className="overlay">
             <div className="box">
               <h2>{battle.phase === 'victory' ? 'Victory' : 'Defeat'}</h2>
@@ -311,7 +324,7 @@ export function BattleScreen() {
       {/* bottom controls: teammate + stance, home/exit + settings + log, action bar + skip turn */}
       <div className="controls">
         <div className="steel ctl-left">
-          <button className="team-btn" disabled={!!selectProblem} onClick={() => select(other.id === 'mahery' ? 'mahery' : 'companion')} title={selectProblem ?? `Direct ${other.name} instead`} data-testid="select-other-btn">
+          <button className="team-btn" disabled={!!selectProblem || settledSeq < latestSeq} onClick={() => select(other.id === 'mahery' ? 'mahery' : 'companion')} title={selectProblem ?? `Direct ${other.name} instead`} data-testid="select-other-btn">
             &lt; Direct {other.name} instead &gt;
           </button>
           <div className="team-meta">
@@ -343,7 +356,19 @@ export function BattleScreen() {
         <div className="steel ctl-right">
           <div className="ctl-actor">{directed.name} {playerTurn ? 'acts' : <span className="muted">waiting...</span>}</div>
           <div className="ctl-acts-row">
-            <ActionBar battle={battle} skills={directed.skills} armedSkillId={armed?.id ?? null} disabled={!playerTurn} onPick={pick} />
+            <div className="target-moves" aria-live="polite">
+              {playerTurn && target ? <>
+                <div className="target-menu-heading"><strong>{directed.name} / {target.name}</strong><button className="btn btn-sm" onClick={() => setTargetId(null)} aria-label="Close moves">Close</button></div>
+                <div className="target-move-grid">{targetSkills.map((skill) => {
+                  const problem = checkSkillUsable(battle, directed.id, skill);
+                  return <button key={skill.id} className="target-move" disabled={!!problem} onClick={() => pick(skill)} data-testid={`skill-${skill.id}`} title={problem ?? skill.summary}>
+                    <SkillIcon icon={skill.icon} color={directed.color} size={32} dim={!!problem} />
+                    <span><strong>{skill.name}</strong><small>{problem ?? `${skill.spiritCost} Spirit${skill.target === 'allEnemies' ? ' / All enemies' : ''}`}</small><small>{skill.summary}</small></span>
+                  </button>;
+                })}</div>
+                {!targetSkills.length && <span className="muted">No equipped moves for this target. Select another fighter.</span>}
+              </> : <span className="muted">{playerTurn ? 'Click a fighter to see available moves.' : 'Resolving the turn...'}</span>}
+            </div>
             <button className="btn btn-sm skip-turn-btn" disabled={!playerTurn} onClick={battleWait} title="Skip your turn without acting" data-testid="skip-turn-btn">
               Skip Turn
             </button>

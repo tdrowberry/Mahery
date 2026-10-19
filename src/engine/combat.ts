@@ -105,7 +105,7 @@ export interface Unit {
   /** effectAnim: which skill.anim landed this hit, so the UI can show a matching impact effect
    * (slash marks, a beam, ...) on the unit that took it - set only for a real weapon-style hit,
    * not heals/shields/DoT ticks. */
-  lastHit?: { amount: number; kind: 'damage' | 'heal' | 'miss' | 'crit' | 'shield' | 'poison'; seq: number; effectAnim?: AnimStyle };
+  lastHit?: { amount: number; kind: 'damage' | 'heal' | 'miss' | 'crit' | 'shield' | 'poison'; seq: number; effectAnim?: AnimStyle; actionSeq?: number };
   lastAction?: UnitLastAction;
 }
 
@@ -303,9 +303,9 @@ function sayVoice(s: BattleState, key: keyof VoiceLines) {
   pushLog(s, 'voice', `${s.animalName}: "${line}"`);
 }
 
-function setLastHit(s: BattleState, u: Unit, amount: number, kind: NonNullable<Unit['lastHit']>['kind'], effectAnim?: AnimStyle) {
+function setLastHit(s: BattleState, u: Unit, amount: number, kind: NonNullable<Unit['lastHit']>['kind'], effectAnim?: AnimStyle, actionSeq?: number) {
   s.seq += 1;
-  u.lastHit = { amount, kind, seq: s.seq, effectAnim };
+  u.lastHit = { amount, kind, seq: s.seq, effectAnim, actionSeq };
 }
 
 // ---------- Targeting ----------
@@ -371,7 +371,7 @@ function dealDamage(s: BattleState, attackerId: UnitId, targetId: UnitId, base: 
     const dodged = withRng(s, (rng) => rng.chance(Math.min(0.75, evasionChance(tAttrs.speed, bonus))));
     if (dodged) {
       pushLog(s, 'info', `${target.name} evades ${attacker.name}'s attack.`);
-      setLastHit(s, target, 0, 'miss');
+      setLastHit(s, target, 0, 'miss', attacker.lastAction?.anim, attacker.lastAction?.seq);
       return targetId;
     }
   }
@@ -424,7 +424,7 @@ function dealDamage(s: BattleState, attackerId: UnitId, targetId: UnitId, base: 
 
   // 6. apply
   target.health = Math.max(0, target.health - amount);
-  setLastHit(s, target, amount, crit ? 'crit' : 'damage', attacker.lastAction?.anim);
+  setLastHit(s, target, amount, crit ? 'crit' : 'damage', attacker.lastAction?.anim, attacker.lastAction?.seq);
   pushLog(s, 'damage', `${attacker.name} hits ${target.name} for ${amount}${crit ? ' (critical!)' : ''}.`);
   if (!isAlive(target)) onUnitDown(s, target);
   if (!isAlive(attacker)) onUnitDown(s, attacker);
@@ -631,7 +631,7 @@ function applyEffects(s: BattleState, casterId: UnitId, primaryTargetId: UnitId,
         const amount = round(scaledValue(cAttrs, effect.scaling, effect.multiplier));
         const healed = Math.min(amount, t.maxHealth - t.health);
         t.health += healed;
-        setLastHit(s, t, healed, 'heal');
+        setLastHit(s, t, healed, 'heal', skill.anim, caster.lastAction?.seq);
         pushLog(s, 'heal', `${t.name} recovers ${healed} Health.`);
         break;
       }
@@ -644,7 +644,7 @@ function applyEffects(s: BattleState, casterId: UnitId, primaryTargetId: UnitId,
       case 'shield': {
         const amount = round(scaledValue(cAttrs, effect.scaling, effect.multiplier));
         addStatus(s, primaryTargetId, casterId, 'guard', effect.duration, amount);
-        setLastHit(s, s.units[primaryTargetId], amount, 'shield');
+        setLastHit(s, s.units[primaryTargetId], amount, 'shield', skill.anim, caster.lastAction?.seq);
         pushLog(s, 'status', `${s.units[primaryTargetId].name} gains a ${amount} point shield.`);
         break;
       }

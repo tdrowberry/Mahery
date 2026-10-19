@@ -6,7 +6,7 @@ import { COMPANION_SKILL_COLUMNS } from '../../data/companionSkills';
 import { maxHealth, maxSpirit, scaledValue } from '../formulas';
 import { createRng } from '../rng';
 import {
-  advance, createBattle, effectiveAttributes, getStatus, hasStatus, playerSelectUnit, playerUseSkill, playerWait, type BattleState,
+  advance, createBattle, validTargets, effectiveAttributes, getStatus, hasStatus, playerSelectUnit, playerUseSkill, playerWait, type BattleState,
 } from '../combat';
 import { gainXp, totalAbilityPointsAtLevel, xpToNextLevel } from '../../data/progression';
 import { checkUnlock, companionSkillId, getAnimalSkills, getCompanionSkills, resolveCompanionSkills } from '../skills';
@@ -411,5 +411,32 @@ describe('progression', () => {
     expect(migrated!.companion.skillRanks).toEqual({ [companionBasic]: 1 });
     expect(migrated!.companion.actionBar[0]).toBe(companionBasic);
     expect(migrated!.companion.actionBar).toHaveLength(6);
+  });
+});
+
+describe('target-first combat presentation', () => {
+  it('offers enemies, self, and the living companion as distinct targets', () => {
+    const s = partyBattle({ enemies: [enemy(), enemy()] });
+    expect(validTargets(s, 'mahery', 'enemy')).toEqual(s.enemyIds);
+    expect(validTargets(s, 'mahery', 'allEnemies')).toEqual(s.enemyIds);
+    expect(validTargets(s, 'mahery', 'self')).toEqual(['mahery']);
+    expect(validTargets(s, 'mahery', 'ally')).toEqual(['companion']);
+    expect(validTargets(s, 'companion', 'ally')).toEqual(['mahery']);
+    s.units.companion.health = 0;
+    expect(validTargets(s, 'mahery', 'ally')).toEqual([]);
+  });
+  it('links every area hit to the same action for synchronized impacts', () => {
+    const s = battle({ enemies: [enemy(), enemy()] });
+    s.units.mahery.skills = [{ ...fang, id: 'area', target: 'allEnemies', anim: 'aoe' }];
+    const next = playerUseSkill(s, 'area', s.enemyIds[1]);
+    for (const id of next.enemyIds) expect(next.units[id].lastHit?.actionSeq).toBe(next.units.mahery.lastAction?.seq);
+  });
+  it('links a heal to the cast and preserves the companion as its recipient', () => {
+    const s = advanceToTurn(partyBattle(), 'mahery');
+    s.units.companion.health = 10;
+    s.units.mahery.skills = [{ ...fang, id: 'heal-ally', target: 'ally', anim: 'cast', effects: [{ kind: 'heal', scaling: 'instinct', multiplier: 1 }] }];
+    const next = playerUseSkill(s, 'heal-ally', 'companion');
+    expect(next.units.companion.health).toBeGreaterThan(10);
+    expect(next.units.companion.lastHit?.actionSeq).toBe(next.units.mahery.lastAction?.seq);
   });
 });
